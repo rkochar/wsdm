@@ -8,13 +8,13 @@ import (
 	"net/http"
 )
 
-type CreateOrderResponse struct {
-	OrderID string `json:"order_id"`
+type FindResponse struct {
+	ItemID string `json:"item_id"`
 }
 
 func main() {
 	router := mux.NewRouter()
-	router.HandleFunc("/order/create/{order_id}/", createOrderHandler)
+	router.HandleFunc("/stock/find/{item_id}/", findHandler)
 
 	// Set the listening address and port for the server
 	addr := ":8080"
@@ -22,12 +22,12 @@ func main() {
 	log.Fatal(http.ListenAndServe(addr, router))
 }
 
-func createOrderHandler(w http.ResponseWriter, r *http.Request) {
+func findHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	orderID := vars["order_id"]
+	itemID := vars["item_id"]
 
-	response := CreateOrderResponse{
-		OrderID: orderID,
+	response := FindResponse{
+		ItemID: itemID,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

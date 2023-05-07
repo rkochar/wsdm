@@ -8,13 +8,15 @@ import (
 	"net/http"
 )
 
-type CreateOrderResponse struct {
+type PayResponse struct {
+	UserID  string `json:"user_id"`
 	OrderID string `json:"order_id"`
+	Amount  string `json:"amount"`
 }
 
 func main() {
 	router := mux.NewRouter()
-	router.HandleFunc("/order/create/{order_id}/", createOrderHandler)
+	router.HandleFunc("/payment/pay/{user_id}/{order_id}/{amount}", payHandler)
 
 	// Set the listening address and port for the server
 	addr := ":8080"
@@ -22,12 +24,16 @@ func main() {
 	log.Fatal(http.ListenAndServe(addr, router))
 }
 
-func createOrderHandler(w http.ResponseWriter, r *http.Request) {
+func payHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	userID := vars["user_id"]
 	orderID := vars["order_id"]
+	amount := vars["amount"]
 
-	response := CreateOrderResponse{
+	response := PayResponse{
 		OrderID: orderID,
+		UserID:  userID,
+		Amount:  amount,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
