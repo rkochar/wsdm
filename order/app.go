@@ -60,6 +60,7 @@ func main() {
 	log.Fatal(http.ListenAndServe(addr, router))
 }
 
+// TODO: set to POST method
 func createOrderHandler(w http.ResponseWriter, r *http.Request) {
 	/*
 		Handler for the route responsible for creating a new order given a certain user ID.
@@ -91,38 +92,60 @@ func createOrderHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// TODO: set to DELETE method
 func removeOrderHandler(w http.ResponseWriter, r *http.Request) {
 	/*
 		Handler for the route responsible for deleting an order given its ID.
 	*/
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
-
-	documentID, err := primitive.ObjectIDFromHex(orderID)
-	if err != nil {
-		log.Fatal(err)
-	}
+	documentID := ConvertStringToMongoID(orderID)
 
 	result, err := ordersCollection.DeleteOne(context.Background(), bson.M{"_id": documentID})
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	log.Printf("Deleted %d document(s)\n", result.DeletedCount)
 	fmt.Printf("Deleted order with ID: %s\n", orderID)
 }
 
+// TODO: set to GET method
 func findOrderHandler(w http.ResponseWriter, r *http.Request) {
 	/*
 		Handler for the route responsible for finding and returning an order.
 	*/
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
+	documentID := ConvertStringToMongoID(orderID)
 
-	documentID, hexErr := primitive.ObjectIDFromHex(orderID)
-	if hexErr != nil {
-		log.Fatal(hexErr)
+	var result Order
+	err := ordersCollection.FindOne(context.Background(), bson.M{"_id": documentID}).Decode(&result)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			fmt.Println("No document found with the given filter")
+		} else {
+			log.Fatal(err)
+		}
+		return
 	}
+	fmt.Printf("Found document: %+v\n", result)
+	result.OrderID = orderID
+
+	w.Header().Set("Content-Type", "application/json")
+	err1 := json.NewEncoder(w).Encode(result)
+	if err1 != nil {
+		http.Error(w, err1.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// TODO: set to POST method
+func addItemHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	orderID := vars["order_id"]
+	itemID := vars["item_id"]
+	fmt.Printf("Adding item %s to order %s", itemID, orderID)
+	documentID := ConvertStringToMongoID(orderID)
 
 	var result Order
 	err := ordersCollection.FindOne(context.Background(), bson.M{"_id": documentID}).Decode(&result)
@@ -136,37 +159,45 @@ func findOrderHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Printf("Found document: %+v\n", result)
 
-	result.OrderID = orderID
-	response, extErr := bson.MarshalExtJSON(result, false, true)
-	if extErr != nil {
-		log.Fatal(extErr)
-	}
-	fmt.Printf("Response document: %s\n", string(response))
-
-	w.Header().Set("Content-Type", "application/json")
-	_, err = w.Write(response)
-	if err != nil {
-		log.Fatal(err)
+	update := bson.M{"$push": bson.M{"items": itemID}}
+	_, addErr := ordersCollection.UpdateOne(context.Background(), bson.M{"_id": documentID}, update)
+	if addErr != nil {
+		log.Fatal(addErr)
 		return
 	}
+	result.Items = append(result.Items, itemID)
+	fmt.Printf("Document with added items: %+v\n", result)
 }
 
-func addItemHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	orderID := vars["order_id"]
-	itemID := vars["item_id"]
-
-	fmt.Printf("Adding item %s to order %s", itemID, orderID)
-}
-
+// TODO: set to DELETE method
 func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
 	itemID := vars["item_id"]
-
 	fmt.Printf("Removing item %s from order %s", itemID, orderID)
+	documentID := ConvertStringToMongoID(orderID)
+
+	var result Order
+	err := ordersCollection.FindOne(context.Background(), bson.M{"_id": documentID}).Decode(&result)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			fmt.Println("No document found with the given filter")
+		} else {
+			log.Fatal(err)
+		}
+		return
+	}
+	fmt.Printf("Found document: %+v\n", result)
+
+	update := bson.M{"$pull": bson.M{"items": itemID}}
+	_, removeErr := ordersCollection.UpdateOne(context.Background(), bson.M{"_id": documentID}, update)
+	if removeErr != nil {
+		log.Fatal(removeErr)
+	}
 }
 
+// TODO: implement this method
+// TODO: set to POST method
 func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
