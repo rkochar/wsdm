@@ -18,7 +18,7 @@ func main() {
 
 	// Set the listening address and port for the server
 	addr := ":8080"
-	fmt.Printf("Starting server at %s\n", addr)
+	fmt.Printf("Starting order service at %s\n", addr)
 	log.Fatal(http.ListenAndServe(addr, router))
 }
 
