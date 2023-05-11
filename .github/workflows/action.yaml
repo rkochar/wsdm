@@ -58,8 +58,8 @@ jobs:
           context: ./stock
           push: true
           tags: |
-            ${{ env.REGISTRY }}/stock:latest
-            ${{ env.REGISTRY }}/stock:${{ steps.versioning.outputs.version_tag }}
+            stock:latest
+            stock:${{ steps.versioning.outputs.version_tag }}
 
       - name: order-release-image
         id: order-image
@@ -68,8 +68,8 @@ jobs:
           context: ./order
           push: true
           tags: |
-            ${{ env.REGISTRY }}/order:latest
-            ${{ env.REGISTRY }}/order:${{ steps.versioning.outputs.version_tag }}
+            order:latest
+            order:${{ steps.versioning.outputs.version_tag }}
 
       - name: payment-release-image
         id: payment-image
@@ -78,5 +78,5 @@ jobs:
           context: ./payment
           push: true
           tags: |
-            ${{ env.REGISTRY }}/payment:latest
-            ${{ env.REGISTRY }}/payment:${{ steps.versioning.outputs.version_tag }}	  
+            payment:latest
+            payment:${{ steps.versioning.outputs.version_tag }}	  
