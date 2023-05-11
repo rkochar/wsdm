@@ -60,6 +60,24 @@ func main() {
 	log.Fatal(http.ListenAndServe(addr, router))
 }
 
+func getOrder(orderID string) Order {
+	documentID := ConvertStringToMongoID(orderID)
+
+	var order Order
+	err := ordersCollection.FindOne(context.Background(), bson.M{"_id": documentID}).Decode(&order)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			fmt.Println("No orders found with the given filter")
+		} else {
+			log.Fatal(err)
+		}
+		return order
+	}
+	fmt.Printf("Found document: %+v\n", order)
+	order.OrderID = orderID
+	return order
+}
+
 // TODO: set to POST method
 func createOrderHandler(w http.ResponseWriter, r *http.Request) {
 	/*
@@ -116,23 +134,10 @@ func findOrderHandler(w http.ResponseWriter, r *http.Request) {
 	*/
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
-	documentID := ConvertStringToMongoID(orderID)
 
-	var result Order
-	err := ordersCollection.FindOne(context.Background(), bson.M{"_id": documentID}).Decode(&result)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			fmt.Println("No document found with the given filter")
-		} else {
-			log.Fatal(err)
-		}
-		return
-	}
-	fmt.Printf("Found document: %+v\n", result)
-	result.OrderID = orderID
-
+	order := getOrder(orderID)
 	w.Header().Set("Content-Type", "application/json")
-	err1 := json.NewEncoder(w).Encode(result)
+	err1 := json.NewEncoder(w).Encode(order)
 	if err1 != nil {
 		http.Error(w, err1.Error(), http.StatusInternalServerError)
 		return
@@ -147,26 +152,14 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Adding item %s to order %s", itemID, orderID)
 	documentID := ConvertStringToMongoID(orderID)
 
-	var result Order
-	err := ordersCollection.FindOne(context.Background(), bson.M{"_id": documentID}).Decode(&result)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			fmt.Println("No document found with the given filter")
-		} else {
-			log.Fatal(err)
-		}
-		return
-	}
-	fmt.Printf("Found document: %+v\n", result)
-
+	order := getOrder(orderID)
+	fmt.Printf("Found order: %+v\n", order)
 	update := bson.M{"$push": bson.M{"items": itemID}}
 	_, addErr := ordersCollection.UpdateOne(context.Background(), bson.M{"_id": documentID}, update)
 	if addErr != nil {
 		log.Fatal(addErr)
 		return
 	}
-	result.Items = append(result.Items, itemID)
-	fmt.Printf("Document with added items: %+v\n", result)
 }
 
 // TODO: set to DELETE method
@@ -177,22 +170,13 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Removing item %s from order %s", itemID, orderID)
 	documentID := ConvertStringToMongoID(orderID)
 
-	var result Order
-	err := ordersCollection.FindOne(context.Background(), bson.M{"_id": documentID}).Decode(&result)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			fmt.Println("No document found with the given filter")
-		} else {
-			log.Fatal(err)
-		}
-		return
-	}
-	fmt.Printf("Found document: %+v\n", result)
-
+	order := getOrder(orderID)
+	fmt.Printf("Found order: %+v\n", order)
 	update := bson.M{"$pull": bson.M{"items": itemID}}
 	_, removeErr := ordersCollection.UpdateOne(context.Background(), bson.M{"_id": documentID}, update)
 	if removeErr != nil {
 		log.Fatal(removeErr)
+		return
 	}
 }
 
@@ -203,4 +187,7 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	orderID := vars["order_id"]
 
 	fmt.Printf("Checkout for order %s", orderID)
+	order := getOrder(orderID)
+
+	fmt.Printf("Found the order: %+v\n", order)
 }

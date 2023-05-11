@@ -7,6 +7,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY app.go .
+COPY utils.go .
 
 RUN go build -o main
 
