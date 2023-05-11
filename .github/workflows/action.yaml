@@ -15,6 +15,9 @@ jobs:
     permissions:
       contents: write
       packages: write
+    strategy:
+      matrix:
+        MICROSERVICE: [stock, payment, order]
     steps:
       - name: checkout
         uses: actions/checkout@v2
@@ -50,34 +53,32 @@ jobs:
             #          driver-opts: |
             #            image=moby/buildkit:v0.10.6
 
-      # TODO: This can probably use the matrix strategy
-
-      - name: stock-release-image
-        id: stock-image
+      - name: ${{ matrix.MICROSERVICE }}-release-image
+        id: ${{ matrix.MICROSERVICE }}-image
         uses: docker/build-push-action@v4.0.0
         with:
-          context: ./stock
+          context: ./${{ matrix.MICROSERVICE }}
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/stock:latest
-            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/stock:${{ steps.versioning.outputs.version_tag }}
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/${{ matrix.MICROSERVICE }}:latest
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/${{ matrix.MICROSERVICE }}:${{ steps.versioning.outputs.version_tag }}
 
-      - name: order-release-image
-        id: order-image
-        uses: docker/build-push-action@v4.0.0
-        with:
-          context: ./order
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/order:latest
-            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/order:${{ steps.versioning.outputs.version_tag }}
-
-      - name: payment-release-image
-        id: payment-image
-        uses: docker/build-push-action@v4.0.0
-        with:
-          context: ./payment
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/payment:latest
-            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/payment:${{ steps.versioning.outputs.version_tag }}
+            #      - name: order-release-image
+            #        id: order-image
+            #        uses: docker/build-push-action@v4.0.0
+            #        with:
+            #          context: ./order
+            #          push: true
+            #          tags: |
+            #            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/order:latest
+            #            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/order:${{ steps.versioning.outputs.version_tag }}
+            #
+            #      - name: payment-release-image
+            #        id: payment-image
+            #        uses: docker/build-push-action@v4.0.0
+            #        with:
+            #          context: ./payment
+            #          push: true
+            #          tags: |
+            #            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/payment:latest
+            #            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/payment:${{ steps.versioning.outputs.version_tag }}
