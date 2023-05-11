@@ -54,7 +54,7 @@ jobs:
             #            image=moby/buildkit:v0.10.6
 
       - name: ${{ matrix.MICROSERVICE }}-release-image
-        id: ${{ matrix.MICROSERVICE }}-image
+        #id: ${{ matrix.MICROSERVICE }}-image
         uses: docker/build-push-action@v4.0.0
         with:
           context: ./${{ matrix.MICROSERVICE }}
