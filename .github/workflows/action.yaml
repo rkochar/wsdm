@@ -7,6 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  CONTAINER_NAME: gijspaardekooper/WDM-G1
 
 jobs:
   release:
@@ -58,8 +59,8 @@ jobs:
           context: ./stock
           push: true
           tags: |
-            ${{ env.REGISTRY }}/wsdm/stock:latest
-            ${{ env.REGISTRY }}/wsdm/stock:${{ steps.versioning.outputs.version_tag }}
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/stock:latest
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/stock:${{ steps.versioning.outputs.version_tag }}
 
       - name: order-release-image
         id: order-image
@@ -68,8 +69,8 @@ jobs:
           context: ./order
           push: true
           tags: |
-            ${{ env.REGISTRY }}/wsdm/order:latest
-            ${{ env.REGISTRY }}/wsdm/order:${{ steps.versioning.outputs.version_tag }}
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/order:latest
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/order:${{ steps.versioning.outputs.version_tag }}
 
       - name: payment-release-image
         id: payment-image
@@ -78,5 +79,5 @@ jobs:
           context: ./payment
           push: true
           tags: |
-            ${{ env.REGISTRY }}/wsdm/payment:latest
-            ${{ env.REGISTRY }}/wsdm/payment:${{ steps.versioning.outputs.version_tag }}	  
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/payment:latest
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/payment:${{ steps.versioning.outputs.version_tag }}
