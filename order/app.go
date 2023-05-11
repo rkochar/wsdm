@@ -41,6 +41,7 @@ func main() {
 	ordersCollection = db.Collection("orders")
 
 	router := mux.NewRouter()
+	router.HandleFunc("/", greetingHandler)
 	router.HandleFunc("/orders/create/{user_id}/", createOrderHandler)
 	router.HandleFunc("/orders/remove/{order_id}/", removeOrderHandler)
 	router.HandleFunc("/orders/find/{order_id}/", findOrderHandler)
@@ -76,6 +77,10 @@ func getOrder(orderID string) Order {
 	fmt.Printf("Found document: %+v\n", order)
 	order.OrderID = orderID
 	return order
+}
+
+func greetingHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Hi there!")
 }
 
 // TODO: set to POST method

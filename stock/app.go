@@ -52,7 +52,7 @@ func main() {
 
 	// Set the listening address and port for the server
 	addr := fmt.Sprintf(":%s", port)
-	fmt.Printf("Starting payment service at %s\n", addr)
+	fmt.Printf("Starting stock service at %s\n", addr)
 	log.Fatal(http.ListenAndServe(addr, router))
 }
 
