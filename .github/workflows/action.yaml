@@ -80,4 +80,4 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ CONTAINER_NAME }}/payment:latest
-            ${{ env.REGISTRY }}/${{ CONTAINER_NAME }}/payment:${{ steps.versioning.outputs.version_tag }}	  
+            ${{ env.REGISTRY }}/${{ CONTAINER_NAME }}/payment:${{ steps.versioning.outputs.version_tag }}
