@@ -72,5 +72,5 @@ jobs:
           context: ./payment
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/user:latest
-            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/user:${{ steps.versioning.outputs.version_tag }}
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/payment:latest
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/payment:${{ steps.versioning.outputs.version_tag }}
