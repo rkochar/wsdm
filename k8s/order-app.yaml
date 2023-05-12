@@ -40,8 +40,8 @@ spec:
           ports:
             - containerPort: 5000
           env:
-            - name: USER_SERVICE_URL
-              value: "user-service"
+            - name: PAYMENT_SERVICE_URL
+              value: "payment-service"
             - name: STOCK_SERVICE_URL
               value: "stock-service"
             - name: REDIS_HOST
