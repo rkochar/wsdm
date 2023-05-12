@@ -48,3 +48,5 @@ spec:
               value: "redis"
             - name: REDIS_DB
               value: "0"
+      imagePullSecrets:
+        - name: regcred-ghcr
