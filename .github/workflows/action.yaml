@@ -84,16 +84,16 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/order:latest
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/order:${{ steps.versioning.outputs.version_tag }}
   
-            #  - name: check-payment
-            #    id: check-payment
-            #    uses: dorny/paths-filter@v2.11.1
-            #    with:               
-            #      filters: |        
-            #        payment:          
-            #          - 'payment/**'
+      - name: check-payment
+        id: check-payment
+        uses: dorny/paths-filter@v2.11.1
+        with:               
+          filters: |        
+            payment:          
+              - 'payment/**'
 
       - name: payment-release-image
-        #if: steps.check-payment.outputs.payment == 'true'
+        if: steps.check-payment.outputs.payment == 'true'
         id: payment-image
         uses: docker/build-push-action@v4.0.0
         with:
