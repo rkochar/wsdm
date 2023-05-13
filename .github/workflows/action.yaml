@@ -17,7 +17,7 @@ jobs:
       packages: write
     steps:
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -45,7 +45,17 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # TODO: This can probably use the matrix strategy.
+      # TODO: Tighten path filters.
+      - name: check-stock
+        id: check-stock
+        uses: dorny/paths-filter@v2.11.1
+        with:
+          filters: |
+            stock:
+              - 'stock/**'
+
       - name: stock-release-image
+        if: steps.check-stock.outputs.stock == 'true'
         id: stock-image
         uses: docker/build-push-action@v4.0.0
         with:
@@ -55,7 +65,16 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/stock:latest
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/stock:${{ steps.versioning.outputs.version_tag }}
 
+      - name: check-order
+        id: check-order
+        uses: dorny/paths-filter@v2.11.1
+        with:
+          filters: |
+            order:
+              - 'order/**'
+
       - name: order-release-image
+        if: steps.check-order.outputs.order == 'true'
         id: order-image
         uses: docker/build-push-action@v4.0.0
         with:
@@ -64,8 +83,17 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/order:latest
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/order:${{ steps.versioning.outputs.version_tag }}
+  
+      - name: check-payment
+        id: check-payment
+        uses: dorny/paths-filter@v2.11.1
+        with:               
+          filters: |        
+            order:          
+              - 'payment/**'
 
       - name: payment-release-image
+        if: steps.check-payment.outputs.payment == 'true'
         id: payment-image
         uses: docker/build-push-action@v4.0.0
         with:

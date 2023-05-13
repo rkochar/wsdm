@@ -7,6 +7,7 @@ COPY go.mod go.sum app.go utils.go ./
 RUN go mod download && \
     go build -o main
 
+
 FROM golang:1.20.4
 
 WORKDIR /app
@@ -18,3 +19,5 @@ ENV PORT 5000
 EXPOSE $PORT
 
 ENTRYPOINT ["./main"]
+
+EXPOSE 5000
