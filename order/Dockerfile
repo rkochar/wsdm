@@ -2,15 +2,12 @@ FROM golang:1.20.4 AS BUILD
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
+COPY go.mod go.sum app.go utils.go ./
 
-RUN go mod download
+RUN go mod download && \
+    go build -o main
 
-COPY app.go .
-COPY utils.go .
-
-RUN go build -o main
-
+# TODO: Why are two stages needed? (The base image is the same)
 FROM golang:1.20.4
 
 WORKDIR /app
