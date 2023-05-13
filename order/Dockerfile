@@ -7,10 +7,6 @@ COPY go.mod go.sum app.go utils.go ./
 RUN go mod download && \
     go build -o main
 
-#COPY app.go .
-
-#COPY utils.go .
-
 # TODO: Why are two stages needed? (The base image is the same)
 FROM golang:1.20.4
 

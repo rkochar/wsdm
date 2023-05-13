@@ -1,9 +1,23 @@
-FROM python:3.11-slim
+FROM golang:1.20.4 AS BUILD
 
-WORKDIR /home/flask-app
+WORKDIR /app
 
-COPY . .
+COPY go.mod go.sum app.go utils.go ./
 
-RUN pip install -r requirements.txt
+RUN go mod download && \
+    go build -o main
+
+
+FROM golang:1.20.4
+
+WORKDIR /app
+
+COPY --from=build /app/main .
+
+ENV PORT 5000
+
+EXPOSE $PORT
+
+ENTRYPOINT ["./main"]
 
 EXPOSE 5000
