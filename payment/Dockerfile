@@ -2,14 +2,10 @@ FROM golang:1.20.4 AS BUILD
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
+COPY go.mod go.sum app.go utils.go ./
 
-RUN go mod download
-
-COPY app.go .
-COPY utils.go .
-
-RUN go build -o main
+RUN go mod download && \
+    go build -o main
 
 FROM golang:1.20.4
 
