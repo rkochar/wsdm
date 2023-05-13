@@ -45,7 +45,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # TODO: This can probably use the matrix strategy.
-
+      # TODO: Tighten path filters.
       - name: check-stock
         id: check-stock
         uses: dorny/paths-filter@v2.11.1
