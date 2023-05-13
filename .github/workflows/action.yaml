@@ -89,7 +89,7 @@ jobs:
         uses: dorny/paths-filter@v2.11.1
         with:               
           filters: |        
-            order:          
+            payment:          
               - 'payment/**'
 
       - name: payment-release-image
