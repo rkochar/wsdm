@@ -35,7 +35,7 @@ func main() {
 	}
 	defer client.Disconnect(ctx)
 
-	db := client.Database("payment")
+	db := client.Database("stock")
 	stockCollection = db.Collection("stock")
 
 	router := mux.NewRouter()
@@ -47,7 +47,7 @@ func main() {
 	port := os.Getenv("PORT")
 	fmt.Printf("Current port is: %s\n", port)
 	if port == "" {
-		port = "8080"
+		port = "8082"
 	}
 
 	// Set the listening address and port for the server
