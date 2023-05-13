@@ -1,0 +1,76 @@
+name: cicd
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  CONTAINER_NAME: gijspaardekooper/wdm-g1
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: update-semantic-version
+        id: versioning
+        uses: PaulHatch/semantic-version@v5.0.3
+        with:
+          branch: main
+          tag_prefix: "v"
+          major_pattern: "breaking:"
+          minor_pattern: "feature:"
+          version_format: "${major}.${minor}.${patch}"
+    
+      - name: tag-code
+        uses: ncipollo/release-action@v1.12.0
+        with:
+          tag: ${{ steps.versioning.outputs.version_tag }}
+          skipIfReleaseExists: true 
+      
+      - name: login-container-registry
+        uses: docker/login-action@v2.1.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # TODO: This can probably use the matrix strategy.
+      - name: stock-release-image
+        id: stock-image
+        uses: docker/build-push-action@v4.0.0
+        with:
+          context: ./stock
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/stock:latest
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/stock:${{ steps.versioning.outputs.version_tag }}
+
+      - name: order-release-image
+        id: order-image
+        uses: docker/build-push-action@v4.0.0
+        with:
+          context: ./order
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/order:latest
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/order:${{ steps.versioning.outputs.version_tag }}
+
+      - name: payment-release-image
+        id: payment-image
+        uses: docker/build-push-action@v4.0.0
+        with:
+          context: ./payment
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/payment:latest
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/payment:${{ steps.versioning.outputs.version_tag }}
