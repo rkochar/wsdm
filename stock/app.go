@@ -111,6 +111,10 @@ func subtractHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("Subtracting %s from order %s\n", amount, itemID)
 	item := getItem(itemID)
+	if intAmount > item.Stock {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	item.Stock -= intAmount
 	success := updateItemStock(item)
 	if !success {
