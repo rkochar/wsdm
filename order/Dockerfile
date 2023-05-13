@@ -8,8 +8,6 @@ RUN go mod download
 
 COPY app.go .
 
-COPY utils.go .
-
 RUN go build -o main
 
 FROM golang:1.20.4
