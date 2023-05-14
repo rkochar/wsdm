@@ -22,11 +22,10 @@ type User struct {
 }
 
 type Payment struct {
-	ID      primitive.ObjectID `bson:"_id"`
-	UserID  string             `json:"user_id"`
-	OrderID string             `json:"order_id"`
-	Amount  float64            `json:"amount"`
-	Paid    bool               `json:"paid"`
+	UserID  string  `json:"user_id"`
+	OrderID string  `json:"order_id"`
+	Amount  float64 `json:"amount"`
+	Paid    bool    `json:"paid"`
 }
 
 type DoneResponse struct {
@@ -66,7 +65,7 @@ func main() {
 	port := os.Getenv("PORT")
 	fmt.Printf("Current port is: %s\n", port)
 	if port == "" {
-		port = "8080"
+		port = "8081"
 	}
 
 	// Set the listening address and port for the server
@@ -106,6 +105,7 @@ func payHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Subtracting %s from order %s of credit of user %s\n", amount, orderID, userID)
 	user := getUser(userID)
 	if amountFloat > user.Credit {
+		fmt.Printf("User has insufficient credit...")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -122,13 +122,13 @@ func payHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(insertErr)
 	}
 
-	documentID := ConvertStringToMongoID(userID)
+	userDocumentID := ConvertStringToMongoID(userID)
 	update := bson.M{
 		"$set": bson.M{
 			"credit": user.Credit,
 		},
 	}
-	_, updateErr := userCollection.UpdateOne(context.Background(), bson.M{"_id": documentID}, update)
+	_, updateErr := userCollection.UpdateOne(context.Background(), bson.M{"_id": userDocumentID}, update)
 	if updateErr != nil {
 		log.Fatal(updateErr)
 	}
@@ -165,7 +165,11 @@ func cancelPaymentHandler(w http.ResponseWriter, r *http.Request) {
 			"paid": false,
 		},
 	}
-	paymentCollection.UpdateOne(context.Background(), bson.M{"_id": payment.ID}, paymentUpdate)
+	paymentFilter := bson.M{
+		"userid":  payment.UserID,
+		"orderID": payment.OrderID,
+	}
+	paymentCollection.UpdateOne(context.Background(), paymentFilter, paymentUpdate)
 }
 
 func paymentStatusHandler(w http.ResponseWriter, r *http.Request) {

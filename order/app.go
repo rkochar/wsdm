@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -22,6 +23,12 @@ type Order struct {
 	Items     []string `json:"items"`
 	UserID    string   `json:"user_id"`
 	TotalCost float64  `json:"total_cost"`
+}
+
+type Item struct {
+	StockID string  `json:"item_id"`
+	Stock   int64   `json:"stock"`
+	Price   float64 `json:"price"`
 }
 
 var client *mongo.Client
@@ -42,9 +49,9 @@ func main() {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/", greetingHandler)
-	router.HandleFunc("/orders/create/{user_id}/", createOrderHandler)
-	router.HandleFunc("/orders/remove/{order_id}/", removeOrderHandler)
-	router.HandleFunc("/orders/find/{order_id}/", findOrderHandler)
+	router.HandleFunc("/orders/create/{user_id}", createOrderHandler)
+	router.HandleFunc("/orders/remove/{order_id}", removeOrderHandler)
+	router.HandleFunc("/orders/find/{order_id}", findOrderHandler)
 	router.HandleFunc("/orders/addItem/{order_id}/{item_id}", addItemHandler)
 	router.HandleFunc("/orders/removeItem/{order_id}/{item_id}", removeItemHandler)
 	router.HandleFunc("/orders/checkout/{order_id}", checkoutHandler)
@@ -74,7 +81,6 @@ func getOrder(orderID string) Order {
 		}
 		return order
 	}
-	fmt.Printf("Found document: %+v\n", order)
 	order.OrderID = orderID
 	return order
 }
@@ -154,12 +160,35 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
 	itemID := vars["item_id"]
+
+	resp, err := http.Get(fmt.Sprintf("http://localhost:8082/stock/find/%s", itemID))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var item Item
+	err = json.NewDecoder(resp.Body).Decode(&item)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Received response: %+v\n", item)
+	if item.Stock == 0 || item.Price == 0.0 {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	fmt.Printf("Adding item %s to order %s", itemID, orderID)
 	documentID := ConvertStringToMongoID(orderID)
-
 	order := getOrder(orderID)
 	fmt.Printf("Found order: %+v\n", order)
-	update := bson.M{"$push": bson.M{"items": itemID}}
+	update := bson.M{
+		"$push": bson.M{
+			"items": itemID,
+		},
+		"$inc": bson.M{
+			"totalcost": item.Price,
+		},
+	}
 	_, addErr := ordersCollection.UpdateOne(context.Background(), bson.M{"_id": documentID}, update)
 	if addErr != nil {
 		log.Fatal(addErr)
@@ -172,7 +201,7 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
 	itemID := vars["item_id"]
-	fmt.Printf("Removing item %s from order %s", itemID, orderID)
+	fmt.Printf("Removing item %s from order %s\n", itemID, orderID)
 	documentID := ConvertStringToMongoID(orderID)
 
 	order := getOrder(orderID)
@@ -185,14 +214,63 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// TODO: implement this method
+func makePayment(order Order) bool {
+	URL := fmt.Sprintf("http://localhost:8081/payment/pay/%s/%s/%f", order.UserID, order.OrderID, order.TotalCost)
+	fmt.Printf("Making payment via URL: %s\n", URL)
+	resp, err := http.Post(URL, "application/json", strings.NewReader(``))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+	return !(400 <= resp.StatusCode && resp.StatusCode < 500)
+}
+
+func subtractStock(itemID string, amount int64) bool {
+	URL := fmt.Sprintf("http://localhost:8082/stock/subtract/%s/%d", itemID, amount)
+	fmt.Printf("Subtracting stock via URL: %s\n", URL)
+	resp, err := http.Post(URL, "application/json", strings.NewReader(``))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+	return !(400 <= resp.StatusCode && resp.StatusCode < 500)
+}
+
 // TODO: set to POST method
 func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
-
-	fmt.Printf("Checkout for order %s", orderID)
+	fmt.Printf("Checkout for order %s\n", orderID)
 	order := getOrder(orderID)
-
 	fmt.Printf("Found the order: %+v\n", order)
+
+	// Step 1: Make the payment
+	paymentSuccess := makePayment(order)
+	if !paymentSuccess {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// Step 2: Subtract the stock
+	for i, item := range order.Items {
+		fmt.Printf("Item at index %d: %+v\n", i, item)
+		subtractStockSuccess := subtractStock(item, 1)
+		if !subtractStockSuccess {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Step 3: Update the order status
+	update := bson.M{"$set": bson.M{"paid": true}}
+	orderDocumentID := ConvertStringToMongoID(orderID)
+	_, updateOrderErr := ordersCollection.UpdateOne(context.Background(), bson.M{"_id": orderDocumentID}, update)
+	if updateOrderErr != nil {
+		fmt.Printf("Error during updating of order status: %s", updateOrderErr)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// Step 4: Return checkout status
+	w.WriteHeader(http.StatusAccepted)
 }
