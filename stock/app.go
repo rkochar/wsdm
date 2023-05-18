@@ -5,16 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gorilla/mux"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Item struct {
@@ -26,8 +27,8 @@ type Item struct {
 var client *mongo.Client
 var stockCollection *mongo.Collection
 
-//var ctx context.Context
-//var cancel context.CancelFunc
+// var ctx context.Context
+// var cancel context.CancelFunc
 
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -75,7 +76,7 @@ func getItem(itemID string) (error, *Item) {
 	return nil, &item
 }
 
-//func updateItemStock(item Item) bool {
+// func updateItemStock(item Item) bool {
 //	documentID := ConvertStringToMongoID(item.StockID)
 //	update := bson.M{
 //		"$set": bson.M{
@@ -88,13 +89,13 @@ func getItem(itemID string) (error, *Item) {
 //		return false
 //	}
 //	return true
-//}
+// }
 
 func findHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	itemID := vars["item_id"]
 
-	//fmt.Printf("Find: %s\n", itemID)
+	// fmt.Printf("Find: %s\n", itemID)
 	findErr, item := getItem(itemID)
 	if findErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -125,12 +126,12 @@ func subtractHandler(w http.ResponseWriter, r *http.Request) {
 	callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
 		getItemErr, item := getItem(itemID)
 		if getItemErr != nil {
-			//fmt.Printf("Get item error")
+			// fmt.Printf("Get item error")
 			w.WriteHeader(http.StatusBadRequest)
 			return nil, getItemErr
 		}
 		if item.Stock < *intAmount {
-			//fmt.Printf("Not enough stock")
+			// fmt.Printf("Not enough stock")
 			return nil, errors.New("not enough stock to subtract")
 		}
 		update := bson.M{
@@ -140,14 +141,14 @@ func subtractHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		_, updateErr := stockCollection.UpdateOne(context.Background(), bson.M{"_id": documentID}, update)
 		if updateErr != nil {
-			//fmt.Printf("Update stock error: %s", updateErr)
+			// fmt.Printf("Update stock error: %s", updateErr)
 			return nil, updateErr
 		}
 		return nil, nil
 	}
 
 	session, startSessionErr := client.StartSession()
-	//fmt.Printf("Started session")
+	// fmt.Printf("Started session")
 	if startSessionErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -159,7 +160,6 @@ func subtractHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	//log.Printf("result: %v\n", result)
 }
 
 func addHandler(w http.ResponseWriter, r *http.Request) {
@@ -185,7 +185,7 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	_, updateErr := stockCollection.UpdateOne(context.Background(), filter, update)
 	for updateErr != nil {
-		//fmt.Printf("Retrying adding item...")
+		// fmt.Printf("Retrying adding item...")
 		_, updateErr = stockCollection.UpdateOne(context.Background(), filter, update)
 	}
 }
@@ -198,7 +198,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	//fmt.Printf("Creating item with price %s\n", price)
+	// fmt.Printf("Creating item with price %s\n", price)
 	stock := Item{
 		Stock: 0,
 		Price: priceFloat,
@@ -209,7 +209,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	stockID := result.InsertedID.(primitive.ObjectID).Hex()
-	//fmt.Printf("Created a new item with ID: %s\n", stockID)
+	// fmt.Printf("Created a new item with ID: %s\n", stockID)
 	stock.StockID = stockID
 
 	w.Header().Set("Content-Type", "application/json")

@@ -3,17 +3,18 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"time"
+
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"log"
-	"net/http"
-	"os"
-	"strconv"
-	"time"
 )
 
 type User struct {
@@ -44,7 +45,8 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
+	var err error
+	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -74,22 +76,41 @@ func main() {
 	log.Fatal(http.ListenAndServe(addr, router))
 }
 
-func getUser(userID string) User {
-	documentID := ConvertStringToMongoID(userID)
+func getUser(userID string) (error, *User) {
+	convErr, documentID := ConvertStringToMongoID(userID)
+	if convErr != nil {
+		return convErr, nil
+	}
 
 	var user User
 	err := userCollection.FindOne(context.Background(), bson.M{"_id": documentID}).Decode(&user)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			fmt.Println("No user found with the given filter")
-		} else {
-			log.Fatal(err)
-		}
-		return user
+		return err, nil
 	}
-	fmt.Printf("Found user: %+v\n", user)
+	// fmt.Printf("Found user: %+v\n", user)
 	user.UserID = userID
-	return user
+	return nil, &user
+}
+
+func getPayment(userID string, orderID string) (error, *Payment) {
+	userIdConvErr, mongoUserID := ConvertStringToMongoID(userID)
+	if userIdConvErr != nil {
+		return userIdConvErr, nil
+	}
+
+	orderIdConvErr, mongoOrderID := ConvertStringToMongoID(orderID)
+	if orderIdConvErr != nil {
+		return orderIdConvErr, nil
+	}
+
+	filter := bson.M{"userid": mongoUserID, "orderid": mongoOrderID}
+
+	var payment Payment
+	findErr := paymentCollection.FindOne(context.Background(), filter).Decode(&payment)
+	if findErr != nil {
+		return findErr, nil
+	}
+	return nil, &payment
 }
 
 func payHandler(w http.ResponseWriter, r *http.Request) {
@@ -97,40 +118,69 @@ func payHandler(w http.ResponseWriter, r *http.Request) {
 	userID := vars["user_id"]
 	orderID := vars["order_id"]
 	amount := vars["amount"]
-	amountFloat, err := strconv.ParseFloat(amount, 64)
-	if err != nil {
-		fmt.Println(err)
-	}
 
-	fmt.Printf("Subtracting %s from order %s of credit of user %s\n", amount, orderID, userID)
-	user := getUser(userID)
-	if amountFloat > user.Credit {
-		fmt.Printf("User has insufficient credit...")
+	userIdConvErr, mongoUserID := ConvertStringToMongoID(userID)
+	if userIdConvErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	user.Credit -= amountFloat
-	payment := Payment{
-		UserID:  userID,
-		OrderID: orderID,
-		Amount:  amountFloat,
-		Paid:    true,
-	}
-	_, insertErr := paymentCollection.InsertOne(context.Background(), payment)
-	if insertErr != nil {
+
+	amountConvErr, amountFloat := ConvertStringToFloat(amount)
+	if amountConvErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		log.Fatal(insertErr)
+		return
 	}
 
-	userDocumentID := ConvertStringToMongoID(userID)
-	update := bson.M{
-		"$set": bson.M{
-			"credit": user.Credit,
-		},
+	callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
+		getuserErr, user := getUser(userID)
+		if getuserErr != nil {
+			// fmt.Printf("Get item error")
+			w.WriteHeader(http.StatusBadRequest)
+			return nil, getuserErr
+		}
+		if user.Credit < *amountFloat {
+			// fmt.Printf("Not enough stock")
+			return nil, errors.New("not enough credits to pay")
+		}
+		userUpdate := bson.M{
+			"$inc": bson.M{
+				"credit": -*amountFloat,
+			},
+		}
+		userFilter := bson.M{
+			"_id": mongoUserID,
+		}
+		_, userUpdateError := userCollection.UpdateOne(context.Background(), userFilter, userUpdate)
+		if userUpdateError != nil {
+			return nil, userUpdateError
+		}
+
+		payment := Payment{
+			UserID:  userID,
+			OrderID: orderID,
+			Amount:  *amountFloat,
+			Paid:    true,
+		}
+		_, insertErr := paymentCollection.InsertOne(context.Background(), payment)
+		if insertErr != nil {
+			return nil, insertErr
+		}
+
+		return nil, nil
 	}
-	_, updateErr := userCollection.UpdateOne(context.Background(), bson.M{"_id": userDocumentID}, update)
-	if updateErr != nil {
-		log.Fatal(updateErr)
+
+	session, startSessionErr := client.StartSession()
+	// fmt.Printf("Started session")
+	if startSessionErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	ctx := context.Background()
+	defer session.EndSession(ctx)
+	_, sessionWithTransactionErr := session.WithTransaction(ctx, callback)
+	if sessionWithTransactionErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 }
 
@@ -139,37 +189,71 @@ func cancelPaymentHandler(w http.ResponseWriter, r *http.Request) {
 	userID := vars["user_id"]
 	orderID := vars["order_id"]
 
-	fmt.Printf("Cancelling payment of order %s for user %s\n", orderID, userID)
+	// TODO: send kafka message to cancel order
 
-	filter := bson.M{"userid": userID, "orderid": orderID}
-	var payment Payment
-	findErr := paymentCollection.FindOne(context.Background(), filter).Decode(&payment)
-	if findErr != nil {
-		log.Fatal(findErr)
+	userIdConvErr, mongoUserID := ConvertStringToMongoID(userID)
+	if userIdConvErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
-	user := getUser(userID)
-	user.Credit += payment.Amount
-	payment.Paid = false
+	orderIdConvErr, mongoOrderID := ConvertStringToMongoID(orderID)
+	if orderIdConvErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
-	userCreditUpdate := bson.M{
-		"$set": bson.M{
-			"credit": user.Credit,
-		},
-	}
-	userDocumentID := ConvertStringToMongoID(userID)
-	userCollection.UpdateOne(context.Background(), bson.M{"_id": userDocumentID}, userCreditUpdate)
+	callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
+		getPaymentErr, payment := getPayment(userID, orderID)
+		if getPaymentErr != nil {
+			return nil, getPaymentErr
+		}
 
-	paymentUpdate := bson.M{
-		"$set": bson.M{
-			"paid": false,
-		},
+		userUpdate := bson.M{
+			"$inc": bson.M{
+				"credit": payment.Amount,
+			},
+		}
+		userFilter := bson.M{
+			"_id": mongoUserID,
+		}
+		_, userUpdateError := userCollection.UpdateOne(context.Background(), userFilter, userUpdate)
+		if userUpdateError != nil {
+			return nil, userUpdateError
+		}
+
+		paymentFilter := bson.M{
+			"userid":  mongoUserID,
+			"orderid": mongoOrderID,
+		}
+
+		paymentUpdate := bson.M{
+			"$set": bson.M{
+				"paid": false,
+			},
+		}
+
+		_, paymentUpdateErr := paymentCollection.UpdateOne(context.Background(), paymentFilter, paymentUpdate)
+		if paymentUpdateErr != nil {
+			return nil, paymentUpdateErr
+		}
+
+		return nil, nil
 	}
-	paymentFilter := bson.M{
-		"userid":  payment.UserID,
-		"orderID": payment.OrderID,
+
+	session, startSessionErr := client.StartSession()
+	// fmt.Printf("Started session")
+	if startSessionErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
-	paymentCollection.UpdateOne(context.Background(), paymentFilter, paymentUpdate)
+	ctx := context.Background()
+	defer session.EndSession(ctx)
+	_, sessionWithTransactionErr := session.WithTransaction(ctx, callback)
+	if sessionWithTransactionErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 }
 
 func paymentStatusHandler(w http.ResponseWriter, r *http.Request) {
@@ -177,21 +261,35 @@ func paymentStatusHandler(w http.ResponseWriter, r *http.Request) {
 	userID := vars["user_id"]
 	orderID := vars["order_id"]
 
-	fmt.Printf("Getting status of payment of order %s for user %s...\n", orderID, userID)
-	filter := bson.M{"userid": userID, "orderid": orderID}
+	userIdConvErr, mongoUserID := ConvertStringToMongoID(userID)
+	if userIdConvErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	orderIdConvErr, mongoOrderID := ConvertStringToMongoID(orderID)
+	if orderIdConvErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	filter := bson.M{"userid": mongoUserID, "orderid": mongoOrderID}
+
 	var payment Payment
 	findErr := paymentCollection.FindOne(context.Background(), filter).Decode(&payment)
 	if findErr != nil {
-		log.Fatal(findErr)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
 
 	response := PaidResponse{
 		Paid: payment.Paid,
 	}
-	w.Header().Set("Content-Type", "application/json")
-	err1 := json.NewEncoder(w).Encode(response)
-	if err1 != nil {
-		http.Error(w, err1.Error(), http.StatusInternalServerError)
+	jsonErr := json.NewEncoder(w).Encode(response)
+	if jsonErr != nil {
+		http.Error(w, jsonErr.Error(), http.StatusInternalServerError)
 		return
 	}
 }
@@ -200,59 +298,66 @@ func addFundsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := vars["user_id"]
 	amount := vars["amount"]
-	documentID := ConvertStringToMongoID(userID)
 
-	fmt.Printf("Adding %s funds for user %s\n", amount, userID)
-	user := getUser(userID)
-
-	amountFloat, err := strconv.ParseFloat(amount, 64)
-	if err != nil {
-		fmt.Println(err)
+	idConvErr, documentID := ConvertStringToMongoID(userID)
+	if idConvErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
-	user.Credit += amountFloat
-	response := DoneResponse{}
 
+	amountConvErr, amountFloat := ConvertStringToFloat(amount)
+	if amountConvErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	filter := bson.M{"_id": documentID}
 	update := bson.M{
-		"$set": bson.M{
-			"credit": user.Credit,
+		"$inc": bson.M{
+			"stock": amountFloat,
 		},
 	}
-	_, updateErr := userCollection.UpdateOne(context.Background(), bson.M{"_id": documentID}, update)
+
+	_, updateErr := userCollection.UpdateOne(context.Background(), filter, update)
+
+	response := DoneResponse{}
+
 	if updateErr != nil {
-		//log.Fatal(addErr)
 		response.Done = false
 	} else {
 		response.Done = true
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	err1 := json.NewEncoder(w).Encode(response)
-	if err1 != nil {
-		http.Error(w, err1.Error(), http.StatusInternalServerError)
+
+	jsonErr := json.NewEncoder(w).Encode(response)
+	if jsonErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
 
 func createUserHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("Creating a new user with 0 credit...\n")
-
 	user := User{
 		Credit: 0.0,
 	}
-	result, err := userCollection.InsertOne(context.Background(), user)
-	if err != nil {
-		log.Fatal(err)
+
+	result, insertionError := userCollection.InsertOne(context.Background(), user)
+	if insertionError != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
+
 	userID := result.InsertedID.(primitive.ObjectID).Hex()
-	fmt.Printf("Created a new user with ID: %s\n", userID)
+
 	user.UserID = userID
 
 	w.Header().Set("Content-Type", "application/json")
-	err1 := json.NewEncoder(w).Encode(user)
-	if err1 != nil {
-		log.Fatal(err1)
-		//http.Error(w, err1.Error(), http.StatusInternalServerError)
-		//return
+
+	jsonError := json.NewEncoder(w).Encode(user)
+	if jsonError != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -260,13 +365,17 @@ func findUserHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := vars["user_id"]
 
-	fmt.Printf("Finding user with ID: %s...\n", userID)
-	user := getUser(userID)
+	userFindErr, user := getUser(userID)
+	if userFindErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-	err1 := json.NewEncoder(w).Encode(user)
-	if err1 != nil {
-		http.Error(w, err1.Error(), http.StatusInternalServerError)
+
+	jsonErr := json.NewEncoder(w).Encode(user)
+	if jsonErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
