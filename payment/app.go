@@ -97,14 +97,12 @@ func getPayment(userID string, orderID string) (error, *Payment) {
 	if userIdConvErr != nil {
 		return userIdConvErr, nil
 	}
-
 	orderIdConvErr, mongoOrderID := ConvertStringToMongoID(orderID)
 	if orderIdConvErr != nil {
 		return orderIdConvErr, nil
 	}
 
 	filter := bson.M{"userid": mongoUserID, "orderid": mongoOrderID}
-
 	var payment Payment
 	findErr := paymentCollection.FindOne(context.Background(), filter).Decode(&payment)
 	if findErr != nil {
@@ -124,7 +122,6 @@ func payHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
 	amountConvErr, amountFloat := ConvertStringToFloat(amount)
 	if amountConvErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -142,13 +139,14 @@ func payHandler(w http.ResponseWriter, r *http.Request) {
 			// fmt.Printf("Not enough stock")
 			return nil, errors.New("not enough credits to pay")
 		}
+
+		userFilter := bson.M{
+			"_id": mongoUserID,
+		}
 		userUpdate := bson.M{
 			"$inc": bson.M{
 				"credit": -*amountFloat,
 			},
-		}
-		userFilter := bson.M{
-			"_id": mongoUserID,
 		}
 		_, userUpdateError := userCollection.UpdateOne(context.Background(), userFilter, userUpdate)
 		if userUpdateError != nil {
@@ -196,7 +194,6 @@ func cancelPaymentHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
 	orderIdConvErr, mongoOrderID := ConvertStringToMongoID(orderID)
 	if orderIdConvErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -209,13 +206,13 @@ func cancelPaymentHandler(w http.ResponseWriter, r *http.Request) {
 			return nil, getPaymentErr
 		}
 
+		userFilter := bson.M{
+			"_id": mongoUserID,
+		}
 		userUpdate := bson.M{
 			"$inc": bson.M{
 				"credit": payment.Amount,
 			},
-		}
-		userFilter := bson.M{
-			"_id": mongoUserID,
 		}
 		_, userUpdateError := userCollection.UpdateOne(context.Background(), userFilter, userUpdate)
 		if userUpdateError != nil {
@@ -226,13 +223,11 @@ func cancelPaymentHandler(w http.ResponseWriter, r *http.Request) {
 			"userid":  mongoUserID,
 			"orderid": mongoOrderID,
 		}
-
 		paymentUpdate := bson.M{
 			"$set": bson.M{
 				"paid": false,
 			},
 		}
-
 		_, paymentUpdateErr := paymentCollection.UpdateOne(context.Background(), paymentFilter, paymentUpdate)
 		if paymentUpdateErr != nil {
 			return nil, paymentUpdateErr
@@ -266,7 +261,6 @@ func paymentStatusHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
 	orderIdConvErr, mongoOrderID := ConvertStringToMongoID(orderID)
 	if orderIdConvErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -274,7 +268,6 @@ func paymentStatusHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filter := bson.M{"userid": mongoUserID, "orderid": mongoOrderID}
-
 	var payment Payment
 	findErr := paymentCollection.FindOne(context.Background(), filter).Decode(&payment)
 	if findErr != nil {
@@ -282,11 +275,10 @@ func paymentStatusHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
 	response := PaidResponse{
 		Paid: payment.Paid,
 	}
+	w.Header().Set("Content-Type", "application/json")
 	jsonErr := json.NewEncoder(w).Encode(response)
 	if jsonErr != nil {
 		http.Error(w, jsonErr.Error(), http.StatusInternalServerError)
@@ -304,7 +296,6 @@ func addFundsHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
 	amountConvErr, amountFloat := ConvertStringToFloat(amount)
 	if amountConvErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -314,14 +305,11 @@ func addFundsHandler(w http.ResponseWriter, r *http.Request) {
 	filter := bson.M{"_id": documentID}
 	update := bson.M{
 		"$inc": bson.M{
-			"stock": amountFloat,
+			"credit": amountFloat,
 		},
 	}
-
 	_, updateErr := userCollection.UpdateOne(context.Background(), filter, update)
-
 	response := DoneResponse{}
-
 	if updateErr != nil {
 		response.Done = false
 	} else {
@@ -329,7 +317,6 @@ func addFundsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-
 	jsonErr := json.NewEncoder(w).Encode(response)
 	if jsonErr != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -341,19 +328,15 @@ func createUserHandler(w http.ResponseWriter, r *http.Request) {
 	user := User{
 		Credit: 0.0,
 	}
-
 	result, insertionError := userCollection.InsertOne(context.Background(), user)
 	if insertionError != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
 	userID := result.InsertedID.(primitive.ObjectID).Hex()
-
 	user.UserID = userID
 
 	w.Header().Set("Content-Type", "application/json")
-
 	jsonError := json.NewEncoder(w).Encode(user)
 	if jsonError != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -372,7 +355,6 @@ func findUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-
 	jsonErr := json.NewEncoder(w).Encode(user)
 	if jsonErr != nil {
 		w.WriteHeader(http.StatusInternalServerError)
