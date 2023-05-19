@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/segmentio/kafka-go"
 	"log"
 	"net/http"
 	"os"
@@ -30,7 +31,32 @@ var stockCollection *mongo.Collection
 // var ctx context.Context
 // var cancel context.CancelFunc
 
+func startKafkaConsumer() {
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:  []string{"localhost:9092"},
+		GroupID:  "my-group",
+		Topic:    "wdm-test",
+		MinBytes: 10e3, // 10KB
+		MaxBytes: 10e6, // 10MB
+	})
+
+	go func() {
+		for {
+			msg, err := reader.ReadMessage(context.Background())
+			if err != nil {
+				log.Fatalf("Failed to read messages from Kafka: %v", err)
+			}
+			fmt.Printf("Message received: key = %s, value = %s\n", string(msg.Key), string(msg.Value))
+
+			// TODO: Here is where you handle the Kafka message.
+			// This could involve triggering other microservice actions or updating the state of this microservice.
+		}
+	}()
+}
+
 func main() {
+	startKafkaConsumer()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
