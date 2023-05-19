@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-payment
+spec:
+  clusterIP: None
+  selector:
+    app: mongodb-payment
+  ports:
+    - name: mongodb-payment
+      protocol: TCP
+      port: 27017
+      targetPort: 27017

@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb-stock
+spec:
+  serviceName: mongodb-stock
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mongodb-stock
+  template:
+    metadata:
+      labels:
+        app: mongodb-stock
+    spec:
+      serviceAccountName: mongodb-stock-role
+      terminationGracePeriodSeconds: 10
+      containers:
+        # DATABASE CONTAINER
+        - name: mongodb
+          image: mongo
+          command:
+            - mongod
+            - "--bind_ip_all"
+            - "--replSet"
+            - rs0
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: mongodb-stock-pvc
+              mountPath: /data/db
+          # DEFINE CPU LIMITS (OPTIONAL)
+          resources:
+            requests:
+              cpu: 0.1
+              memory: 100Mi
+        # SIDECAR CONTAINER
+        - name: mongodb-stock-sidecar
+          image: cvallance/mongo-k8s-sidecar
+          env:
+            - name: MONGO_SIDECAR_POD_LABELS
+              value: "app=mongodb-stock"
+  volumeClaimTemplates:
+    - metadata:
+        name: mongodb-stock-pvc
+   #     annotations:
+   #       volume.beta.kubernetes.io/storage-class: "fast" #fast is the label we defined earlier on
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
