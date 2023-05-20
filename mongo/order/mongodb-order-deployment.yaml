@@ -3,7 +3,7 @@ kind: StatefulSet
 metadata:
   name: mongodb-order
 spec:
-  serviceName: mongodb-order
+  serviceName: mongodb-order-service
   replicas: 3
   selector:
     matchLabels:

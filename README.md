@@ -5,12 +5,6 @@ Basic project structure with Python's Flask and Redis.
 
 ### Project structure
 
-* `env`
-    Folder containing the Redis env variables for the docker-compose deployment
-    
-* `helm-config` 
-   Helm chart values for Redis and ingress-nginx
-        
 * `k8s`
     Folder containing the kubernetes deployments, apps and services for the ingress, order, payment and stock services.
     
@@ -26,6 +20,12 @@ Basic project structure with Python's Flask and Redis.
 * `test`
     Folder containing some basic correctness tests for the entire system. (Feel free to enhance them)
 
+* `mongo`
+    Folder containing kubernetes files for mongo.
+
+* `ses`
+    Folder containing ses application to manage locks.
+
 ### Deployment types:
 
 #### docker-compose (local development)
@@ -37,10 +37,16 @@ After coding the REST endpoint logic run `docker-compose up --build` in the base
 
 #### minikube (local k8s cluster)
 
-This setup is for local k8s testing to see if your k8s config works before deploying to the cloud. 
+<strikethrough>This setup is for local k8s testing to see if your k8s config works before deploying to the cloud. 
 First deploy your database using helm by running the `deploy-charts-minicube.sh` file (in this example the DB is Redis 
 but you can find any database you want in https://artifacthub.io/ and adapt the script). Then adapt the k8s configuration files in the
-`\k8s` folder to match your system and then run `kubectl apply -f .` in the k8s folder.
+`\k8s` folder to match your system and then run `kubectl apply -f .` in the k8s folder.</strikethrough>
+
+`./deploy-minikube.sh` will setup the cluster and `./delete-minikube.sh` will delete everything. You may need ghcr auth (do this once, set your pat to expire in 30 days).
+
+`kubectl create secret docker-registry regcred-ghcr --docker-server=https://ghcr.io --docker-username=<username> --docker-password=<pat> --docker-email=<email>` 
+
+Kube [docs](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry) if needed.
 
 ***Requirements:*** You need to have minikube (with ingress enabled) and helm installed on your machine.
 
@@ -50,8 +56,7 @@ Similarly to the `minikube` deployment but run the `deploy-charts-cluster.sh` in
 
 ***Requirements:*** You need to have access to kubectl of a k8s cluster.
 
-## Microservices
+## Microservices (local docker)
 Before running the microservices you need to make sure the local or remote database is active. For MongoDB on Ubuntu this can be done using the following steps:
 1. Run `sudo systemctl status mongod` to check the status of MongoDB
 2. If disabled run: `sudo systemctl start mongod`
-

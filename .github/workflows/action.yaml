@@ -45,17 +45,26 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # TODO: This can probably use the matrix strategy.
-      # TODO: Tighten path filters.
-      - name: check-stock
-        id: check-stock
+      - name: check-if-deployment-is-needed
+        id: check-changes
         uses: dorny/paths-filter@v2.11.1
         with:
           filters: |
             stock:
-              - 'stock/**'
+              - 'stock/Dockerfile'
+              - 'stock/*.go'
+            order:
+              - 'order/Dockerfile'
+              - 'order/*.go'
+            payment:
+              - 'payment/Dockerfile'
+              - 'payment/*.go'
+            lockmaster:
+              - 'lockmaster/Dockerfile'
+              - 'lockmaster/*.go'
 
       - name: stock-release-image
-        if: steps.check-stock.outputs.stock == 'true'
+        if: steps.check-changes.outputs.stock == 'true'
         id: stock-image
         uses: docker/build-push-action@v4.0.0
         with:
@@ -65,16 +74,8 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/stock:latest
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/stock:${{ steps.versioning.outputs.version_tag }}
 
-      - name: check-order
-        id: check-order
-        uses: dorny/paths-filter@v2.11.1
-        with:
-          filters: |
-            order:
-              - 'order/**'
-
       - name: order-release-image
-        if: steps.check-order.outputs.order == 'true'
+        if: steps.check-changes.outputs.order == 'true'
         id: order-image
         uses: docker/build-push-action@v4.0.0
         with:
@@ -84,16 +85,8 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/order:latest
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/order:${{ steps.versioning.outputs.version_tag }}
   
-      - name: check-payment
-        id: check-payment
-        uses: dorny/paths-filter@v2.11.1
-        with:               
-          filters: |        
-            payment:          
-              - 'payment/**'
-
       - name: payment-release-image
-        if: steps.check-payment.outputs.payment == 'true'
+        if: steps.check-changes.outputs.payment == 'true'
         id: payment-image
         uses: docker/build-push-action@v4.0.0
         with:
@@ -102,3 +95,14 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/payment:latest
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/payment:${{ steps.versioning.outputs.version_tag }}
+
+      - name: lockmaster-release-image
+        if: steps.check-changes.outputs.lockmaster == 'true'
+        id: lockmaster-image
+        uses: docker/build-push-action@v4.0.0
+        with:
+          context: ./lockmaster
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/lockmaster:latest
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/lockmaster:${{steps.versioning.outputs.version_tag }}

@@ -3,7 +3,7 @@ kind: StatefulSet
 metadata:
   name: mongodb-payment
 spec:
-  serviceName: mongodb-payment
+  serviceName: mongodb-payment-service
   replicas: 3
   selector:
     matchLabels:

@@ -39,10 +39,5 @@ spec:
               cpu: "1"
           ports:
             - containerPort: 5000
-          env:
-            - name: PAYMENT_SERVICE_URL
-              value: "payment-service"
-            - name: STOCK_SERVICE_URL
-              value: "stock-service"
       imagePullSecrets:
         - name: regcred-ghcr
