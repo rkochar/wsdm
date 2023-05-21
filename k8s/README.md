@@ -1,13 +1,5 @@
 # SetUp minikube
 
-Start a cluster called wsdm.
-
-`minikube start -p wsdm`
-
-Enable ingress (will likely need it later).
-
-`minikube addons enable ingress`
-
 Deploy microservices and ingresses.
 
 `./deploy-microservice.sh`

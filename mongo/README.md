@@ -2,9 +2,6 @@
 
 Deploy databases with
 
-```
-cd <microservice>
-kubectl apply -f .
-```
+`kubectl apply -f ./<microservice>`
 
-You might get some warning from statefulsets (I don't know where they are coming from).
+You might get some warning from statefulsets, ignore them.
