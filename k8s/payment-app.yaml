@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
         - name: payment
-          image: ghcr.io/gijspaardekooper/wdm-g1/payment:latest
+          image: payment:latest
           resources:
             limits:
               memory: "1Gi"
