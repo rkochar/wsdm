@@ -29,7 +29,8 @@ spec:
     spec:
       containers:
         - name: order
-          image: ghcr.io/gijspaardekooper/wdm-g1/order:latest
+          image: ghcr.io/gijspaardekooper/wdm-g1/order:v0.1.7
+          imagePullPolicy: IfNotPresent
           resources:
             limits:
               memory: "1Gi"
