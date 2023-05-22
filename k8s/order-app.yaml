@@ -39,18 +39,5 @@ spec:
               cpu: "1"
           ports:
             - containerPort: 5000
-          env:
-            - name: PAYMENT_SERVICE_URL
-              value: "payment-service"
-            - name: STOCK_SERVICE_URL
-              value: "stock-service"
-            - name: REDIS_HOST
-              value: redis-master
-            - name: REDIS_PORT
-              value: '6379'
-            - name: REDIS_PASSWORD
-              value: "redis"
-            - name: REDIS_DB
-              value: "0"
       imagePullSecrets:
         - name: regcred-ghcr

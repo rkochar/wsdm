@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb-order
+spec:
+  serviceName: mongodb-order-service
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mongodb-order
+  template:
+    metadata:
+      labels:
+        app: mongodb-order
+    spec:
+      serviceAccountName: mongodb-order-role
+      terminationGracePeriodSeconds: 10
+      containers:
+        # DATABASE CONTAINER
+        - name: mongodb
+          image: mongo
+          command:
+            - mongod
+            - "--bind_ip_all"
+            - "--replSet"
+            - rs0
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: mongodb-order-pvc
+              mountPath: /data/db
+          # DEFINE CPU LIMITS (OPTIONAL)
+          resources:
+            requests:
+              cpu: 0.1
+              memory: 100Mi
+        # SIDECAR CONTAINER
+        - name: mongodb-order-sidecar
+          image: cvallance/mongo-k8s-sidecar
+          env:
+            - name: MONGO_SIDECAR_POD_LABELS
+              value: "app=mongodb-order"
+  volumeClaimTemplates:
+    - metadata:
+        name: mongodb-order-pvc
+   #     annotations:
+   #       volume.beta.kubernetes.io/storage-class: "fast" #fast is the label we defined earlier on
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi

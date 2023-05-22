@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: mongodb-stock
+  name: mongodb-stock
+spec:
+  serviceName: mongodb-stock
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mongodb-stock
+  template:
+    metadata:
+      labels:
+        app: mongodb-stock
+    spec:
+      containers:
+      - env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-stock-secret
+              key: MONGO_INITDB_ROOT_USERNAME
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-stock-secret
+              key: MONGO_INITDB_ROOT_PASSWORD
+        image: mongo
+        imagePullPolicy: IfNotPresent
+        name: mongodb-stock
+        ports:
+        - containerPort: 27017
+        resources: {}
+        volumeMounts:
+        - mountPath: /data/db
+          name: mongodb-stock-claim0
+      restartPolicy: Always
+      serviceAccountName: ""  
+      volumes:
+      - name: mongodb-stock-claim0
+        persistentVolumeClaim:
+          claimName: mongodb-stock-claim0
