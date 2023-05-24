@@ -6,7 +6,7 @@ metadata:
   name: mongodb-stock
 spec:
   serviceName: mongodb-stock
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: mongodb-stock
@@ -16,17 +16,6 @@ spec:
         app: mongodb-stock
     spec:
       containers:
-      - env:
-        - name: MONGO_INITDB_ROOT_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: mongodb-stock-secret
-              key: MONGO_INITDB_ROOT_USERNAME
-        - name: MONGO_INITDB_ROOT_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: mongodb-stock-secret
-              key: MONGO_INITDB_ROOT_PASSWORD
         image: mongo
         imagePullPolicy: IfNotPresent
         name: mongodb-stock
@@ -37,7 +26,7 @@ spec:
         - mountPath: /data/db
           name: mongodb-stock-claim0
       restartPolicy: Always
-      serviceAccountName: ""  
+      serviceAccountName: ""
       volumes:
       - name: mongodb-stock-claim0
         persistentVolumeClaim:

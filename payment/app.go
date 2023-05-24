@@ -11,7 +11,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 )
@@ -41,37 +40,44 @@ var userCollection *mongo.Collection
 var paymentCollection *mongo.Collection
 
 func main() {
+	//MongoDB connection settings
+	mongoURI := "mongodb://mongodbstockusername:mongodbstockpassword@mongodb-stock:27017/admin?directConnection=true&serverSelectionTimeoutMS=2000"
+	clientOptions := options.Client().ApplyURI(mongoURI)
+
+	// Create a context with a timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
+	// Connect to MongoDB
+	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer client.Disconnect(ctx)
 
-	db := client.Database("payment")
-	userCollection = db.Collection("users")
-	paymentCollection = db.Collection("payments")
-
-	router := mux.NewRouter()
-	router.HandleFunc("/payment/pay/{user_id}/{order_id}/{amount}", payHandler)
-	router.HandleFunc("/payment/cancel/{user_id}/{order_id}", cancelPaymentHandler)
-	router.HandleFunc("/payment/status/{user_id}/{order_id}", paymentStatusHandler)
-	router.HandleFunc("/payment/add_funds/{user_id}/{amount}", addFundsHandler)
-	router.HandleFunc("/payment/create_user", createUserHandler)
-	router.HandleFunc("/payment/find_user/{user_id}", findUserHandler)
-
-	port := os.Getenv("PORT")
-	fmt.Printf("Current port is: %s\n", port)
-	if port == "" {
-		port = "8081"
+	// Ping the MongoDB server to check the connection
+	err = client.Ping(ctx, nil)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	// Set the listening address and port for the server
-	addr := fmt.Sprintf(":%s", port)
-	fmt.Printf("Starting payment service at %s\n", addr)
-	log.Fatal(http.ListenAndServe(addr, router))
+	fmt.Println("Connected to MongoDB!")
+
+	fmt.Println("Listing dbs!")
+
+	// List all databases
+	databases, err := client.ListDatabaseNames(ctx, bson.M{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(databases)
+
+	// Disconnect from MongoDB
+	err = client.Disconnect(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Disconnected from MongoDB!")
 }
 
 func getUser(userID string) User {
@@ -239,11 +245,17 @@ func createUserHandler(w http.ResponseWriter, r *http.Request) {
 	user := User{
 		Credit: 0.0,
 	}
+
+	fmt.Printf("Starting insert")
 	result, err := userCollection.InsertOne(context.Background(), user)
+	fmt.Printf("Error %s", err)
+	fmt.Printf("Result %s", result)
+
 	if err != nil {
 		log.Fatal(err)
 	}
 	userID := result.InsertedID.(primitive.ObjectID).Hex()
+	fmt.Printf("Result %s", userID)
 	fmt.Printf("Created a new user with ID: %s\n", userID)
 	user.UserID = userID
 
@@ -269,4 +281,8 @@ func findUserHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err1.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+func greetingHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Hi there!Welcome to payment hello")
 }

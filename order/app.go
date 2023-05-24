@@ -4,17 +4,25 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/mux"
+	kafka "github.com/segmentio/kafka-go"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+)
 
-	"github.com/gorilla/mux"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+const (
+	topic  = "order-ack"
+	broker = "kafka-service.kafka.svc.cluster.local:9092"
+	//broker1Address = "localhost:9093"
+	//broker2Address = "localhost:9094"
+	//broker3Address = "localhost:9095"
 )
 
 type Order struct {
@@ -37,14 +45,13 @@ var ordersCollection *mongo.Collection
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	fmt.Printf("Helleuuu")
+	go produce()
 
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://mongodb-stock:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer client.Disconnect(ctx)
-
 	db := client.Database("orders")
 	ordersCollection = db.Collection("orders")
 
@@ -87,7 +94,7 @@ func getOrder(orderID string) Order {
 }
 
 func greetingHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hi there!")
+	fmt.Fprintf(w, "Hi there!Welcome to order")
 }
 
 // TODO: set to POST method
@@ -274,4 +281,28 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Step 4: Return checkout status
 	w.WriteHeader(http.StatusAccepted)
+}
+
+func produce() {
+	topic := topic
+	partition := 0
+
+	conn, err := kafka.DialLeader(context.Background(), "tcp", broker, topic, partition)
+	if err != nil {
+		log.Fatal("failed to dial leader:", err)
+	}
+
+	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	_, err = conn.WriteMessages(
+		kafka.Message{Value: []byte("one!")},
+		kafka.Message{Value: []byte("two!")},
+		kafka.Message{Value: []byte("three!")},
+	)
+	if err != nil {
+		log.Fatal("failed to write messages:", err)
+	}
+
+	if err := conn.Close(); err != nil {
+		log.Fatal("failed to close writer:", err)
+	}
 }
