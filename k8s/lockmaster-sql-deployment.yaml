@@ -28,7 +28,8 @@ spec:
     spec:
       containers:
       - name: lockmaster
-        image: ghcr.io/gijspaardekooper/wdm-g1/lockmaster:latest
+        image: lockmaster:latest
+        imagePullPolicy: Never
         resources:
           limits:
             memory: "1Gi"
@@ -44,10 +45,14 @@ spec:
           - "--ignore-db-dir=lost+found"
         env:
           # Use secret in real usage
-        - name: MYSQL_DATABASE
-          value: lockmaster_database
-        - name: MYSQL_ROOT_PASSWORD
-          value: password
+          - name: MYSQL_ROOT_PASSWORD
+            value: your_root_password
+          - name: MYSQL_DATABASE
+            value: your_database_name
+          - name: MYSQL_USER
+            value: your_username
+          - name: MYSQL_PASSWORD
+            value: your_password
         ports:
         - containerPort: 3306
           name: mysql
