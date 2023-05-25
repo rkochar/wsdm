@@ -7,10 +7,13 @@ import (
 )
 
 func main() {
+	fmt.Printf("Im starting")
 	// Open a connection to the MySQL database
-	db, err := sql.Open("mysql", "your_username:your_password@tcp(mysql-service:3306)/your_database_name")
+	db, err := sql.Open("mysql", "your_username:your_password@tcp(10.244.0.234:3306)/your_database_name")
 	if err != nil {
-		panic(err.Error())
+		panic(err)
+	} else {
+		fmt.Printf("I did it,i opened a conn")
 	}
 	defer db.Close()
 
