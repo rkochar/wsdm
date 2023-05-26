@@ -3,13 +3,41 @@ package main
 import (
 	"context"
 	"fmt"
-	kafka "github.com/segmentio/kafka-go"
 	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"time"
+
+	kafka "github.com/segmentio/kafka-go"
 )
+
+type Action struct {
+	nextMessage string
+	topic       string
+}
+
+// Maps incoming message to outgoing message
+var successfulActionMap = map[string]Action{
+	// Normal checkout
+	"START-CHECKOUT-SAGA": {"START-SUBTRACT-STOCK", "order-syn"},
+	"END-SUBTRACT-STOCK":  {"START-MAKE-PAYMENT", "payment-syn"},
+	"END-MAKE-PAYMENT":    {"START-UPDATE-ORDER", "order-syn"},
+	"END-UPDATE-ORDER":    {"END-CHECKOUT-SAGA", ""},
+	// Rollback checkout
+	"END-CANCEL-PAYMENT": {"START-READD-STOCK", "stock-syn"},
+	"END-READD-STOCK":    {"END-CHECKOUT-SAGA", ""},
+}
+
+// Maps message before ABORT to outgoing message
+var failActionMap = map[string]Action{
+	// Stock Fails
+	"START-SUBTRACT-STOCK": {"END-CHECKOUT-SAGA", ""},
+	// Payment Fails
+	"START-MAKE-PAYMENT": {"START-READD-STOCK", "stock-syn"},
+	// Order Fails
+	"START-UPDATE-ORDER": {"START-CANCEL-PAYMENT", "payment-syn"},
+}
 
 func main() {
 	// Set up Kafka connection configuration
@@ -57,7 +85,6 @@ func main() {
 func createTopicReader(topicName string, config kafka.ReaderConfig) *kafka.Reader {
 	config.Topic = topicName
 	reader := kafka.NewReader(config)
-	//defer reader.Close()
 	return reader
 }
 

@@ -1,16 +1,19 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	kafka "github.com/segmentio/kafka-go"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
+	kafka "github.com/segmentio/kafka-go"
+
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -99,7 +102,7 @@ func createOrderHandler(w http.ResponseWriter, r *http.Request) {
 	*/
 	vars := mux.Vars(r)
 	userID := vars["user_id"]
-	//fmt.Printf("Creating order for user %s\n", userID)
+	// fmt.Printf("Creating order for user %s\n", userID)
 
 	order := Order{
 		Paid:      false,
@@ -113,7 +116,7 @@ func createOrderHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	orderID := insertResult.InsertedID.(primitive.ObjectID).Hex()
-	//log.Printf("Inserted document with ID: %v\n", insertResult.InsertedID)
+	// log.Printf("Inserted document with ID: %v\n", insertResult.InsertedID)
 	order.OrderID = orderID
 
 	w.Header().Set("Content-Type", "application/json")
@@ -143,8 +146,8 @@ func removeOrderHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	//log.Printf("Deleted %d document(s)\n", result.DeletedCount)
-	//fmt.Printf("Deleted order with ID: %s\n", orderID)
+	// log.Printf("Deleted %d document(s)\n", result.DeletedCount)
+	// fmt.Printf("Deleted order with ID: %s\n", orderID)
 }
 
 // TODO: set to GET method
@@ -188,10 +191,10 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	//if item.Stock == 0 || item.Price == 0.0 {
+	// if item.Stock == 0 || item.Price == 0.0 {
 	//	w.WriteHeader(http.StatusBadRequest)
 	//	return
-	//}
+	// }
 
 	convertDocIDErr, documentID := ConvertStringToMongoID(orderID)
 	if convertDocIDErr != nil {
@@ -295,7 +298,7 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	// Step 1: Subtract the stock
 	// Compensation: re-add stock
 	for _, item := range order.Items {
-		//fmt.Printf("Item at index %d: %+v\n", i, item)
+		// fmt.Printf("Item at index %d: %+v\n", i, item)
 		subtractStockSuccess := subtractStock(item, 1)
 		if !subtractStockSuccess {
 			w.WriteHeader(http.StatusBadRequest)
@@ -327,7 +330,7 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	_, updateOrderErr := ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
 	if updateOrderErr != nil {
-		//fmt.Printf("Error during updating of order status: %s", updateOrderErr)
+		// fmt.Printf("Error during updating of order status: %s", updateOrderErr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -376,8 +379,27 @@ func checkoutKafkaHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatal("failed to dial leader:", err)
 	}
 
+	sagaID := uuid.New()
+
+	testItem := Item{
+		StockID: "a",
+		Stock:   42,
+		Price:   69,
+	}
+	jsonByteArray, marshalError := json.Marshal(testItem)
+	if marshalError != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	messageBuffer := bytes.Buffer{}
+	messageBuffer.WriteString("START_CHECKOUT-SAGA_")
+	messageBuffer.WriteString(sagaID.String())
+	messageBuffer.WriteString("_")
+	messageBuffer.Write(jsonByteArray)
+
 	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-	_, err = conn.Write([]byte("START_CHECKOUT"))
+	_, err = conn.Write(messageBuffer.Bytes())
 	if err != nil {
 		log.Fatal("failed to write messages:", err)
 	}
