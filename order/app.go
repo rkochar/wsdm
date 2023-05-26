@@ -58,6 +58,7 @@ func main() {
 	router.HandleFunc("/orders/checkout/{order_id}", checkoutHandler)
 
 	router.HandleFunc("/orders/send/{message}", sendKafkaMessageHandler)
+	router.HandleFunc("/orders/kafka/checkout", checkoutKafkaHandler)
 
 	port := os.Getenv("PORT")
 	fmt.Printf("Current port is: %s\n", port)
@@ -291,15 +292,7 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Step 1: Make the payment
-	// Compensation: cancel payment
-	paymentSuccess := makePayment(*order)
-	if !paymentSuccess {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	// Step 2: Subtract the stock
+	// Step 1: Subtract the stock
 	// Compensation: re-add stock
 	for _, item := range order.Items {
 		//fmt.Printf("Item at index %d: %+v\n", i, item)
@@ -308,6 +301,14 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+	}
+
+	// Step 2: Make the payment
+	// Compensation: cancel payment
+	paymentSuccess := makePayment(*order)
+	if !paymentSuccess {
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	// Step 3: Update the order status
@@ -352,6 +353,31 @@ func sendKafkaMessageHandler(w http.ResponseWriter, r *http.Request) {
 
 	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 	_, err = conn.Write([]byte(message))
+	if err != nil {
+		log.Fatal("failed to write messages:", err)
+	}
+
+	if err := conn.Close(); err != nil {
+		log.Fatal("failed to close writer:", err)
+	}
+}
+
+// /orders/checkout/kafka
+func checkoutKafkaHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Hi there Kafka!")
+	fmt.Printf("Doing Kafka checkout test")
+
+	// to produce messages
+	topic := "order-ack"
+	partition := 0
+
+	conn, err := kafka.DialLeader(context.Background(), "tcp", "localhost:9092", topic, partition)
+	if err != nil {
+		log.Fatal("failed to dial leader:", err)
+	}
+
+	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	_, err = conn.Write([]byte("START_CHECKOUT"))
 	if err != nil {
 		log.Fatal("failed to write messages:", err)
 	}
