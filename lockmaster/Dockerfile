@@ -23,4 +23,5 @@ RUN echo "Build a microservice. Uncomment lines in lockmaster/Dockerfile below."
 #
 #ENTRYPOINT ["./main"]
 #
+# TODO: expose port once
 #EXPOSE 5000
