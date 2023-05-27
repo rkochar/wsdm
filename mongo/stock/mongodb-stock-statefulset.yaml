@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb-stock
+spec:
+  selector:
+    matchLabels:
+      app: mongodb-stock
+  serviceName: mongodb-stock
+  template:
+    metadata:
+      labels:
+        app: mongodb-stock
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo
+        ports:
+        - containerPort: 27017
+          name: web
+      - name: init-mongo
+        image: mongo
+        command:
+        - bash
+        - /config/init.sh
+        volumeMounts:
+        - name: config
+          mountPath: /config
+      volumes:
+      - name: config
+        configMap:
+          name: "mongo-init"
