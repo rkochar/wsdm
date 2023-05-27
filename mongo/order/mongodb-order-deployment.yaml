@@ -4,7 +4,7 @@ metadata:
   name: mongodb-order
 spec:
   serviceName: mongodb-order-service
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: mongodb-order
@@ -16,14 +16,8 @@ spec:
       serviceAccountName: mongodb-order-role
       terminationGracePeriodSeconds: 10
       containers:
-        # DATABASE CONTAINER
         - name: mongodb
           image: mongo
-          command:
-            - mongod
-            - "--bind_ip_all"
-            - "--replSet"
-            - rs0
           ports:
             - containerPort: 27017
           volumeMounts:
