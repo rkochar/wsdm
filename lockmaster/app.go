@@ -109,6 +109,7 @@ func setupOrderTopicListener(reader *kafka.Reader, ctx context.Context, signals 
 
 				fmt.Printf("Received message for topic %s: Partition=%d, Offset=%d, Key=%s, Value=%s\n",
 					topic, m.Partition, m.Offset, string(m.Key), string(m.Value))
+
 			}
 		}
 	}(reader)
