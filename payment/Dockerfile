@@ -20,4 +20,5 @@ EXPOSE $PORT
 
 ENTRYPOINT ["./main"]
 
+# exposing a second time?
 EXPOSE 5000
