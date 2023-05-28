@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	kafka "github.com/segmentio/kafka-go"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
+
+	"WDM-G1/shared"
+	kafka "github.com/segmentio/kafka-go"
 
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
@@ -89,7 +91,7 @@ func main() {
 }
 
 func getItem(itemID string) (error, *Item) {
-	convErr, documentID := ConvertStringToMongoID(itemID)
+	convErr, documentID := shared.ConvertStringToMongoID(itemID)
 	if convErr != nil {
 		return convErr, nil
 	}
@@ -101,21 +103,6 @@ func getItem(itemID string) (error, *Item) {
 	item.StockID = itemID
 	return nil, &item
 }
-
-// func updateItemStock(item Item) bool {
-//	documentID := ConvertStringToMongoID(item.StockID)
-//	update := bson.M{
-//		"$set": bson.M{
-//			"stock": item.Stock,
-//		},
-//	}
-//	_, updateErr := stockCollection.UpdateOne(context.Background(), bson.M{"_id": documentID}, update)
-//	if updateErr != nil {
-//		log.Fatal(updateErr)
-//		return false
-//	}
-//	return true
-// }
 
 func findHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -138,12 +125,12 @@ func subtractHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	itemID := vars["item_id"]
 	amount := vars["amount"]
-	convertIntErr, intAmount := ConvertStringToInt(amount)
+	convertIntErr, intAmount := shared.ConvertStringToInt(amount)
 	if convertIntErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	convertDocIDErr, documentID := ConvertStringToMongoID(itemID)
+	convertDocIDErr, documentID := shared.ConvertStringToMongoID(itemID)
 	if convertDocIDErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -192,12 +179,12 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	itemID := vars["item_id"]
 	amount := vars["amount"]
-	convIntErr, intAmount := ConvertStringToInt(amount)
+	convIntErr, intAmount := shared.ConvertStringToInt(amount)
 	if convIntErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	convStringErr, documentID := ConvertStringToMongoID(itemID)
+	convStringErr, documentID := shared.ConvertStringToMongoID(itemID)
 	if convStringErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return

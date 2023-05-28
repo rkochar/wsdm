@@ -10,24 +10,13 @@ import (
 	"os"
 	"time"
 
+	"WDM-G1/shared"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
-
-type User struct {
-	UserID string  `json:"user_id"`
-	Credit float64 `json:"credit"`
-}
-
-type Payment struct {
-	UserID  string  `json:"user_id"`
-	OrderID string  `json:"order_id"`
-	Amount  float64 `json:"amount"`
-	Paid    bool    `json:"paid"`
-}
 
 type DoneResponse struct {
 	Done bool `json:"done"`
@@ -76,13 +65,13 @@ func main() {
 	log.Fatal(http.ListenAndServe(addr, router))
 }
 
-func getUser(userID string) (error, *User) {
-	convErr, documentID := ConvertStringToMongoID(userID)
+func getUser(userID string) (error, *shared.User) {
+	convErr, documentID := shared.ConvertStringToMongoID(userID)
 	if convErr != nil {
 		return convErr, nil
 	}
 
-	var user User
+	var user shared.User
 	err := userCollection.FindOne(context.Background(), bson.M{"_id": documentID}).Decode(&user)
 	if err != nil {
 		return err, nil
@@ -92,18 +81,18 @@ func getUser(userID string) (error, *User) {
 	return nil, &user
 }
 
-func getPayment(userID string, orderID string) (error, *Payment) {
-	userIdConvErr, mongoUserID := ConvertStringToMongoID(userID)
+func getPayment(userID string, orderID string) (error, *shared.Payment) {
+	userIdConvErr, mongoUserID := shared.ConvertStringToMongoID(userID)
 	if userIdConvErr != nil {
 		return userIdConvErr, nil
 	}
-	orderIdConvErr, mongoOrderID := ConvertStringToMongoID(orderID)
+	orderIdConvErr, mongoOrderID := shared.ConvertStringToMongoID(orderID)
 	if orderIdConvErr != nil {
 		return orderIdConvErr, nil
 	}
 
 	filter := bson.M{"userid": mongoUserID, "orderid": mongoOrderID}
-	var payment Payment
+	var payment shared.Payment
 	findErr := paymentCollection.FindOne(context.Background(), filter).Decode(&payment)
 	if findErr != nil {
 		return findErr, nil
@@ -117,12 +106,12 @@ func payHandler(w http.ResponseWriter, r *http.Request) {
 	orderID := vars["order_id"]
 	amount := vars["amount"]
 
-	userIdConvErr, mongoUserID := ConvertStringToMongoID(userID)
+	userIdConvErr, mongoUserID := shared.ConvertStringToMongoID(userID)
 	if userIdConvErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	amountConvErr, amountFloat := ConvertStringToFloat(amount)
+	amountConvErr, amountFloat := shared.ConvertStringToFloat(amount)
 	if amountConvErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -153,7 +142,7 @@ func payHandler(w http.ResponseWriter, r *http.Request) {
 			return nil, userUpdateError
 		}
 
-		payment := Payment{
+		payment := shared.Payment{
 			UserID:  userID,
 			OrderID: orderID,
 			Amount:  *amountFloat,
@@ -189,12 +178,12 @@ func cancelPaymentHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: send kafka message to cancel order
 
-	userIdConvErr, mongoUserID := ConvertStringToMongoID(userID)
+	userIdConvErr, mongoUserID := shared.ConvertStringToMongoID(userID)
 	if userIdConvErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	orderIdConvErr, mongoOrderID := ConvertStringToMongoID(orderID)
+	orderIdConvErr, mongoOrderID := shared.ConvertStringToMongoID(orderID)
 	if orderIdConvErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -256,19 +245,19 @@ func paymentStatusHandler(w http.ResponseWriter, r *http.Request) {
 	userID := vars["user_id"]
 	orderID := vars["order_id"]
 
-	userIdConvErr, mongoUserID := ConvertStringToMongoID(userID)
+	userIdConvErr, mongoUserID := shared.ConvertStringToMongoID(userID)
 	if userIdConvErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	orderIdConvErr, mongoOrderID := ConvertStringToMongoID(orderID)
+	orderIdConvErr, mongoOrderID := shared.ConvertStringToMongoID(orderID)
 	if orderIdConvErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	filter := bson.M{"userid": mongoUserID, "orderid": mongoOrderID}
-	var payment Payment
+	var payment shared.Payment
 	findErr := paymentCollection.FindOne(context.Background(), filter).Decode(&payment)
 	if findErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -291,12 +280,12 @@ func addFundsHandler(w http.ResponseWriter, r *http.Request) {
 	userID := vars["user_id"]
 	amount := vars["amount"]
 
-	idConvErr, documentID := ConvertStringToMongoID(userID)
+	idConvErr, documentID := shared.ConvertStringToMongoID(userID)
 	if idConvErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	amountConvErr, amountFloat := ConvertStringToFloat(amount)
+	amountConvErr, amountFloat := shared.ConvertStringToFloat(amount)
 	if amountConvErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -325,7 +314,7 @@ func addFundsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func createUserHandler(w http.ResponseWriter, r *http.Request) {
-	user := User{
+	user := shared.User{
 		Credit: 0.0,
 	}
 	result, insertionError := userCollection.InsertOne(context.Background(), user)

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"WDM-G1/shared"
 	kafka "github.com/segmentio/kafka-go"
 
 	"github.com/gorilla/mux"
@@ -25,12 +26,6 @@ type Order struct {
 	Items     []string `json:"items"`
 	UserID    string   `json:"user_id"`
 	TotalCost float64  `json:"total_cost"`
-}
-
-type Item struct {
-	StockID string  `json:"item_id"`
-	Stock   int64   `json:"stock"`
-	Price   float64 `json:"price"`
 }
 
 var client *mongo.Client
@@ -59,7 +54,7 @@ func main() {
 	router.HandleFunc("/orders/checkout/{order_id}", checkoutHandler)
 
 	router.HandleFunc("/orders/send/{message}", sendKafkaMessageHandler)
-	router.HandleFunc("/orders/kafka/checkout", checkoutKafkaHandler)
+	// router.HandleFunc("/orders/kafka/checkout", checkoutKafkaHandler)
 
 	port := os.Getenv("PORT")
 	fmt.Printf("Current port is: %s\n", port)
@@ -74,7 +69,7 @@ func main() {
 }
 
 func getOrder(orderID string) (error, *Order) {
-	convertDocIDErr, documentID := ConvertStringToMongoID(orderID)
+	convertDocIDErr, documentID := shared.ConvertStringToMongoID(orderID)
 	if convertDocIDErr != nil {
 		return convertDocIDErr, nil
 	}
@@ -132,7 +127,7 @@ func removeOrderHandler(w http.ResponseWriter, r *http.Request) {
 	*/
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
-	convertDocIDErr, documentID := ConvertStringToMongoID(orderID)
+	convertDocIDErr, documentID := shared.ConvertStringToMongoID(orderID)
 	if convertDocIDErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -183,7 +178,7 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer getStockResponse.Body.Close()
 
-	var item Item
+	var item shared.Item
 	jsonDecodeErr := json.NewDecoder(getStockResponse.Body).Decode(&item)
 	if jsonDecodeErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -194,7 +189,7 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 	//	return
 	// }
 
-	convertDocIDErr, documentID := ConvertStringToMongoID(orderID)
+	convertDocIDErr, documentID := shared.ConvertStringToMongoID(orderID)
 	if convertDocIDErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -229,14 +224,14 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer getStockResponse.Body.Close()
 
-	var item Item
+	var item shared.Item
 	jsonDecodeErr := json.NewDecoder(getStockResponse.Body).Decode(&item)
 	if jsonDecodeErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	convertDocIDErr, documentID := ConvertStringToMongoID(orderID)
+	convertDocIDErr, documentID := shared.ConvertStringToMongoID(orderID)
 	if convertDocIDErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -314,7 +309,7 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Step 3: Update the order status
 	// Compensation: set order to unpaid
-	convertDocIDErr, orderDocumentID := ConvertStringToMongoID(orderID)
+	convertDocIDErr, orderDocumentID := shared.ConvertStringToMongoID(orderID)
 	if convertDocIDErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
