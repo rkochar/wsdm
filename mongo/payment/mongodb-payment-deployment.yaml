@@ -4,7 +4,7 @@ metadata:
   name: mongodb-payment
 spec:
   serviceName: mongodb-payment-service
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: mongodb-payment
@@ -19,11 +19,6 @@ spec:
         # DATABASE CONTAINER
         - name: mongodb
           image: mongo
-          command:
-            - mongod
-            - "--bind_ip_all"
-            - "--replSet"
-            - rs0
           ports:
             - containerPort: 27017
           volumeMounts:

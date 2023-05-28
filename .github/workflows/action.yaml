@@ -4,10 +4,11 @@ on:
   push:
     branches:
       - main
+      - master
 
 env:
   REGISTRY: ghcr.io
-  CONTAINER_NAME: gijspaardekooper/wdm-g1
+  CONTAINER_NAME: rkochar/wsdm
 
 jobs:
   release:

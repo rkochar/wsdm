@@ -16,6 +16,7 @@ COPY --from=build /app/main .
 
 ENV PORT 5000
 
+# TODO: Exposing twice?
 EXPOSE $PORT
 
 ENTRYPOINT ["./main"]

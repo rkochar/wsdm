@@ -2,7 +2,7 @@ FROM golang:1.20.4 AS BUILD
 
 WORKDIR /app
 
-COPY go.mod go.sum app.go utils.go ./
+COPY go.mod go.sum app.go ./
 
 RUN go mod download && \
     go build -o main
@@ -20,5 +20,4 @@ EXPOSE $PORT
 
 ENTRYPOINT ["./main"]
 
-# exposing a second time?
 EXPOSE 5000

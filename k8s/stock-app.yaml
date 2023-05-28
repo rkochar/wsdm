@@ -29,8 +29,8 @@ spec:
     spec:
       containers:
         - name: stock
-          image: stock:latest
-          imagePullPolicy: Never
+          image: ghcr.io/gijspaardekooper/wdm-g1/stock:v0.1.7
+          imagePullPolicy: IfNotPresent
           resources:
             limits:
               memory: "1Gi"

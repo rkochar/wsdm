@@ -1,23 +1,23 @@
 package main
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"log"
 	"strconv"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func ConvertStringToMongoID(key string) primitive.ObjectID {
+func ConvertStringToMongoID(key string) (error, *primitive.ObjectID) {
 	documentID, hexErr := primitive.ObjectIDFromHex(key)
 	if hexErr != nil {
-		log.Fatal(hexErr)
+		return hexErr, nil
 	}
-	return documentID
+	return nil, &documentID
 }
 
-func ConvertStringToInt(number string) int64 {
+func ConvertStringToInt(number string) (error, *int64) {
 	integerNum, err := strconv.ParseInt(number, 10, 64)
 	if err != nil {
-		log.Fatal(err)
+		return err, nil
 	}
-	return integerNum
+	return nil, &integerNum
 }

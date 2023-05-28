@@ -7,7 +7,6 @@ spec:
     matchLabels:
       app: mongodb-stock
   serviceName: mongodb-stock
-  replicas: 3
   template:
     metadata:
       labels:

@@ -4,25 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
 	kafka "github.com/segmentio/kafka-go"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
-)
 
-const (
-	topic  = "order-ack"
-	broker = "kafka-service.kafka.svc.cluster.local:9092"
-	//broker1Address = "localhost:9093"
-	//broker2Address = "localhost:9094"
-	//broker3Address = "localhost:9095"
+	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Order struct {
@@ -45,13 +38,13 @@ var ordersCollection *mongo.Collection
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	go produce()
 
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://mongodb-stock:27017"))
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer client.Disconnect(ctx)
+
 	db := client.Database("orders")
 	ordersCollection = db.Collection("orders")
 
@@ -63,6 +56,8 @@ func main() {
 	router.HandleFunc("/orders/addItem/{order_id}/{item_id}", addItemHandler)
 	router.HandleFunc("/orders/removeItem/{order_id}/{item_id}", removeItemHandler)
 	router.HandleFunc("/orders/checkout/{order_id}", checkoutHandler)
+
+	router.HandleFunc("/orders/send/{message}", sendKafkaMessageHandler)
 
 	port := os.Getenv("PORT")
 	fmt.Printf("Current port is: %s\n", port)
@@ -76,25 +71,24 @@ func main() {
 	log.Fatal(http.ListenAndServe(addr, router))
 }
 
-func getOrder(orderID string) Order {
-	documentID := ConvertStringToMongoID(orderID)
+func getOrder(orderID string) (error, *Order) {
+	convertDocIDErr, documentID := ConvertStringToMongoID(orderID)
+	if convertDocIDErr != nil {
+		return convertDocIDErr, nil
+	}
 
+	filter := bson.M{"_id": documentID}
 	var order Order
-	err := ordersCollection.FindOne(context.Background(), bson.M{"_id": documentID}).Decode(&order)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			fmt.Println("No orders found with the given filter")
-		} else {
-			log.Fatal(err)
-		}
-		return order
+	findDocErr := ordersCollection.FindOne(context.Background(), filter).Decode(&order)
+	if findDocErr != nil {
+		return findDocErr, nil
 	}
 	order.OrderID = orderID
-	return order
+	return nil, &order
 }
 
 func greetingHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hi there!Welcome to order")
+	fmt.Fprintf(w, "Hi there!")
 }
 
 // TODO: set to POST method
@@ -104,7 +98,7 @@ func createOrderHandler(w http.ResponseWriter, r *http.Request) {
 	*/
 	vars := mux.Vars(r)
 	userID := vars["user_id"]
-	fmt.Printf("Creating order for user %s\n", userID)
+	//fmt.Printf("Creating order for user %s\n", userID)
 
 	order := Order{
 		Paid:      false,
@@ -112,19 +106,19 @@ func createOrderHandler(w http.ResponseWriter, r *http.Request) {
 		UserID:    userID,
 		TotalCost: 0.0,
 	}
-
-	result, err1 := ordersCollection.InsertOne(context.Background(), order)
-	if err1 != nil {
-		log.Fatal(err1)
+	insertResult, mongoInsertErr := ordersCollection.InsertOne(context.Background(), order)
+	if mongoInsertErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
-	orderID := result.InsertedID.(primitive.ObjectID).Hex()
-	log.Printf("Inserted document with ID: %v\n", result.InsertedID)
+	orderID := insertResult.InsertedID.(primitive.ObjectID).Hex()
+	//log.Printf("Inserted document with ID: %v\n", insertResult.InsertedID)
 	order.OrderID = orderID
 
 	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(order)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	jsonEncodeErr := json.NewEncoder(w).Encode(order)
+	if jsonEncodeErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
@@ -136,14 +130,20 @@ func removeOrderHandler(w http.ResponseWriter, r *http.Request) {
 	*/
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
-	documentID := ConvertStringToMongoID(orderID)
-
-	result, err := ordersCollection.DeleteOne(context.Background(), bson.M{"_id": documentID})
-	if err != nil {
-		log.Fatal(err)
+	convertDocIDErr, documentID := ConvertStringToMongoID(orderID)
+	if convertDocIDErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
-	log.Printf("Deleted %d document(s)\n", result.DeletedCount)
-	fmt.Printf("Deleted order with ID: %s\n", orderID)
+
+	filter := bson.M{"_id": documentID}
+	_, removeDocErr := ordersCollection.DeleteOne(context.Background(), filter)
+	if removeDocErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	//log.Printf("Deleted %d document(s)\n", result.DeletedCount)
+	//fmt.Printf("Deleted order with ID: %s\n", orderID)
 }
 
 // TODO: set to GET method
@@ -154,11 +154,16 @@ func findOrderHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
 
-	order := getOrder(orderID)
+	findOrderErr, order := getOrder(orderID)
+	if findOrderErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	err1 := json.NewEncoder(w).Encode(order)
-	if err1 != nil {
-		http.Error(w, err1.Error(), http.StatusInternalServerError)
+	jsonEncodeErr := json.NewEncoder(w).Encode(order)
+	if jsonEncodeErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
@@ -169,27 +174,32 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 	orderID := vars["order_id"]
 	itemID := vars["item_id"]
 
-	resp, err := http.Get(fmt.Sprintf("http://localhost:8082/stock/find/%s", itemID))
-	if err != nil {
-		log.Fatal(err)
+	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://localhost:8082/stock/find/%s", itemID))
+	if getStockErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
-	defer resp.Body.Close()
+	defer getStockResponse.Body.Close()
+
 	var item Item
-	err = json.NewDecoder(resp.Body).Decode(&item)
-	if err != nil {
-		log.Fatal(err)
+	jsonDecodeErr := json.NewDecoder(getStockResponse.Body).Decode(&item)
+	if jsonDecodeErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
-	fmt.Printf("Received response: %+v\n", item)
-	if item.Stock == 0 || item.Price == 0.0 {
+	//if item.Stock == 0 || item.Price == 0.0 {
+	//	w.WriteHeader(http.StatusBadRequest)
+	//	return
+	//}
+
+	convertDocIDErr, documentID := ConvertStringToMongoID(orderID)
+	if convertDocIDErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	fmt.Printf("Adding item %s to order %s", itemID, orderID)
-	documentID := ConvertStringToMongoID(orderID)
-	order := getOrder(orderID)
-	fmt.Printf("Found order: %+v\n", order)
-	update := bson.M{
+	orderFilter := bson.M{"_id": documentID}
+	orderUpdate := bson.M{
 		"$push": bson.M{
 			"items": itemID,
 		},
@@ -197,9 +207,9 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 			"totalcost": item.Price,
 		},
 	}
-	_, addErr := ordersCollection.UpdateOne(context.Background(), bson.M{"_id": documentID}, update)
-	if addErr != nil {
-		log.Fatal(addErr)
+	_, addItemErr := ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
+	if addItemErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
@@ -209,18 +219,45 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
 	itemID := vars["item_id"]
-	fmt.Printf("Removing item %s from order %s\n", itemID, orderID)
-	documentID := ConvertStringToMongoID(orderID)
 
-	order := getOrder(orderID)
-	fmt.Printf("Found order: %+v\n", order)
-	update := bson.M{"$pull": bson.M{"items": itemID}}
-	_, removeErr := ordersCollection.UpdateOne(context.Background(), bson.M{"_id": documentID}, update)
-	if removeErr != nil {
-		log.Fatal(removeErr)
+	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://localhost:8082/stock/find/%s", itemID))
+	if getStockErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	defer getStockResponse.Body.Close()
+
+	var item Item
+	jsonDecodeErr := json.NewDecoder(getStockResponse.Body).Decode(&item)
+	if jsonDecodeErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	convertDocIDErr, documentID := ConvertStringToMongoID(orderID)
+	if convertDocIDErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	orderFilter := bson.M{"_id": documentID}
+	orderUpdate := bson.M{
+		"$pull": bson.M{
+			"items": itemID,
+		},
+		"$inc": bson.M{
+			"totalcost": -item.Price,
+		},
+	}
+	_, removeItemErr := ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
+	if removeItemErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 }
+
+// PAYMENT_MAKE_USERID_ORDERID_TOTALCOST
+// PAYMENT_CANCEL_USERID_ORDERID_TOTALCOST
 
 func makePayment(order Order) bool {
 	URL := fmt.Sprintf("http://localhost:8081/payment/pay/%s/%s/%f", order.UserID, order.OrderID, order.TotalCost)
@@ -248,20 +285,24 @@ func subtractStock(itemID string, amount int64) bool {
 func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
-	fmt.Printf("Checkout for order %s\n", orderID)
-	order := getOrder(orderID)
-	fmt.Printf("Found the order: %+v\n", order)
+	getOrderErr, order := getOrder(orderID)
+	if getOrderErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	// Step 1: Make the payment
-	paymentSuccess := makePayment(order)
+	// Compensation: cancel payment
+	paymentSuccess := makePayment(*order)
 	if !paymentSuccess {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	// Step 2: Subtract the stock
-	for i, item := range order.Items {
-		fmt.Printf("Item at index %d: %+v\n", i, item)
+	// Compensation: re-add stock
+	for _, item := range order.Items {
+		//fmt.Printf("Item at index %d: %+v\n", i, item)
 		subtractStockSuccess := subtractStock(item, 1)
 		if !subtractStockSuccess {
 			w.WriteHeader(http.StatusBadRequest)
@@ -270,11 +311,22 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Step 3: Update the order status
-	update := bson.M{"$set": bson.M{"paid": true}}
-	orderDocumentID := ConvertStringToMongoID(orderID)
-	_, updateOrderErr := ordersCollection.UpdateOne(context.Background(), bson.M{"_id": orderDocumentID}, update)
+	// Compensation: set order to unpaid
+	convertDocIDErr, orderDocumentID := ConvertStringToMongoID(orderID)
+	if convertDocIDErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	orderFilter := bson.M{"_id": orderDocumentID}
+	orderUpdate := bson.M{
+		"$set": bson.M{
+			"paid": true,
+		},
+	}
+	_, updateOrderErr := ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
 	if updateOrderErr != nil {
-		fmt.Printf("Error during updating of order status: %s", updateOrderErr)
+		//fmt.Printf("Error during updating of order status: %s", updateOrderErr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -283,21 +335,23 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func produce() {
-	topic := topic
+func sendKafkaMessageHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	message := vars["message"]
+
+	fmt.Printf("Message to send over Kafka: %s\n", message)
+
+	// to produce messages
+	topic := "wdm-test"
 	partition := 0
 
-	conn, err := kafka.DialLeader(context.Background(), "tcp", broker, topic, partition)
+	conn, err := kafka.DialLeader(context.Background(), "tcp", "localhost:9092", topic, partition)
 	if err != nil {
 		log.Fatal("failed to dial leader:", err)
 	}
 
 	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-	_, err = conn.WriteMessages(
-		kafka.Message{Value: []byte("one!")},
-		kafka.Message{Value: []byte("two!")},
-		kafka.Message{Value: []byte("three!")},
-	)
+	_, err = conn.Write([]byte(message))
 	if err != nil {
 		log.Fatal("failed to write messages:", err)
 	}

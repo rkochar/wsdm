@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stock
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: stock
+  template:
+    metadata:
+      labels:
+        app: stock
+    spec:
+      containers:
+        - name: stock
+          image: testmongoconnection:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 5000

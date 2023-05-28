@@ -8,12 +8,12 @@ import (
 	"log"
 )
 
-func ConvertStringToMongoID(key string) primitive.ObjectID {
+func ConvertStringToMongoID(key string) (error, *primitive.ObjectID) {
 	documentID, hexErr := primitive.ObjectIDFromHex(key)
 	if hexErr != nil {
-		log.Fatal(hexErr)
+		return hexErr, nil
 	}
-	return documentID
+	return nil, &documentID
 }
 
 func FindSingleDocument(coll *mongo.Collection, filter interface{}, result interface{}) interface{} {
