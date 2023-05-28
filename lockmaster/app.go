@@ -52,15 +52,21 @@ func main() {
 		MaxWait:         1 * time.Second,
 		ReadLagInterval: -1,
 	}
-	// Create the order-ack Reader
-	orderReader := createTopicReader("order-ack", config)
-	defer orderReader.Close()
-	// Create the stock-ack Reader
-	stockReader := createTopicReader("stock-ack", config)
-	defer stockReader.Close()
-	// Create the payment-ack Reader
-	paymentReader := createTopicReader("payment-ack", config)
-	defer paymentReader.Close()
+
+	services := []string{"order", "stock", "payment"}
+
+	senderMap := make(map[string]*kafka.Conn)
+	readerMap := make(map[string]*kafka.Reader)
+
+	for _, serviceName := range services {
+		topicSyn := serviceName + "-syn"
+		senderMap[topicSyn] = createTopicSender(topicSyn)
+		defer senderMap[topicSyn].Close()
+
+		topicAck := serviceName + "-ack"
+		readerMap[topicAck] = createTopicReader(topicAck, config)
+		defer readerMap[topicAck].Close()
+	}
 
 	// Create a context to control the consumer
 	ctx, cancel := context.WithCancel(context.Background())
@@ -70,16 +76,69 @@ func main() {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
 
-	// Setup the logic for the order-ack listener
-	setupOrderTopicListener(orderReader, ctx, signals)
-	// Setup the logic for the stock-ack listener
-	setupStockTopicListener(stockReader, ctx, signals)
-	// Setup the logic for the payment-ack listener
-	setupPaymentTopicListener(paymentReader, ctx, signals)
+	for _, reader := range readerMap {
+		go func(reader *kafka.Reader) {
+			topic := reader.Config().Topic
+			for {
+				select {
+				case <-signals:
+					log.Printf("Received interrupt signal for topic %s. Shutting down...\n", topic)
+					return
+				default:
+					m, err := reader.ReadMessage(ctx)
+					if err != nil {
+						if strings.Contains(err.Error(), "context canceled") {
+							log.Printf("Consumer context canceled for topic %s. Shutting down...\n", topic)
+							return
+						}
+						log.Printf("Error reading message for topic %s: %v\n", topic, err)
+						continue
+					}
+
+					fmt.Printf("Received message for topic %s: Partition=%d, Offset=%d, Key=%s, Value=%s\n",
+						topic, m.Partition, m.Offset, string(m.Key), string(m.Value))
+
+					parseErr, message := parseSagaMessage(string(m.Value))
+					if parseErr != nil {
+						log.Printf("Error parsing message: %s\n", parseErr)
+						continue
+					}
+
+					var nextAction Action
+
+					if message.name == "ABORT-CHECKOUT-SAGA" {
+						// TODO: get last successful message name from log
+						// nextAction = failActionMap[]
+
+						log.Printf("Abort not supported yet")
+						continue
+					} else {
+						nextAction = successfulActionMap[message.name]
+					}
+
+					message.name = nextAction.nextMessage
+					sender := senderMap[nextAction.topic]
+
+					sendErr := sendSagaMessage(message, sender)
+					if sendErr != nil {
+						log.Printf("Error sending message: %s\n", sendErr)
+					}
+				}
+			}
+		}(reader)
+	}
 
 	// Wait for termination signal
 	<-signals
 	log.Println("Received interrupt signal. Shutting down...")
+}
+
+func createTopicSender(topic string) *kafka.Conn {
+	conn, err := kafka.DialLeader(context.Background(), "tcp", "localhost:9092", topic, 0)
+	if err != nil {
+		log.Fatal("failed to dial leader:", err)
+	}
+	return conn
 }
 
 func createTopicReader(topicName string, config kafka.ReaderConfig) *kafka.Reader {
@@ -88,31 +147,8 @@ func createTopicReader(topicName string, config kafka.ReaderConfig) *kafka.Reade
 	return reader
 }
 
-func setupOrderTopicListener(reader *kafka.Reader, ctx context.Context, signals <-chan os.Signal) {
-	go func(reader *kafka.Reader) {
-		topic := reader.Config().Topic
-		for {
-			select {
-			case <-signals:
-				log.Printf("Received interrupt signal for topic %s. Shutting down...\n", topic)
-				return
-			default:
-				m, err := reader.ReadMessage(ctx)
-				if err != nil {
-					if strings.Contains(err.Error(), "context canceled") {
-						log.Printf("Consumer context canceled for topic %s. Shutting down...\n", topic)
-						return
-					}
-					log.Printf("Error reading message for topic %s: %v\n", topic, err)
-					continue
-				}
+func setupOrderTopicListener(reader *kafka.Reader) {
 
-				fmt.Printf("Received message for topic %s: Partition=%d, Offset=%d, Key=%s, Value=%s\n",
-					topic, m.Partition, m.Offset, string(m.Key), string(m.Value))
-
-			}
-		}
-	}(reader)
 }
 
 func setupStockTopicListener(reader *kafka.Reader, ctx context.Context, signals <-chan os.Signal) {

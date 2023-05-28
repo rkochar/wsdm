@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,7 +12,6 @@ import (
 
 	kafka "github.com/segmentio/kafka-go"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -366,45 +364,23 @@ func sendKafkaMessageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // /orders/checkout/kafka
-func checkoutKafkaHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hi there Kafka!")
-	fmt.Printf("Doing Kafka checkout test")
-
-	// to produce messages
-	topic := "order-ack"
-	partition := 0
-
-	conn, err := kafka.DialLeader(context.Background(), "tcp", "localhost:9092", topic, partition)
-	if err != nil {
-		log.Fatal("failed to dial leader:", err)
-	}
-
-	sagaID := uuid.New()
-
-	testItem := Item{
-		StockID: "a",
-		Stock:   42,
-		Price:   69,
-	}
-	jsonByteArray, marshalError := json.Marshal(testItem)
-	if marshalError != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	messageBuffer := bytes.Buffer{}
-	messageBuffer.WriteString("START_CHECKOUT-SAGA_")
-	messageBuffer.WriteString(sagaID.String())
-	messageBuffer.WriteString("_")
-	messageBuffer.Write(jsonByteArray)
-
-	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-	_, err = conn.Write(messageBuffer.Bytes())
-	if err != nil {
-		log.Fatal("failed to write messages:", err)
-	}
-
-	if err := conn.Close(); err != nil {
-		log.Fatal("failed to close writer:", err)
-	}
-}
+// func checkoutKafkaHandler(w http.ResponseWriter, r *http.Request) {
+// 	fmt.Fprintf(w, "Hi there Kafka!")
+// 	fmt.Printf("Doing Kafka checkout test")
+//
+// 	// to produce messages
+// 	topic := "order-ack"
+// 	partition := 0
+//
+// 	sagaID := uuid.New()
+//
+// 	testItem := Item{
+// 		StockID: "a",
+// 		Stock:   42,
+// 		Price:   69,
+// 	}
+//
+// 	if err := conn.Close(); err != nil {
+// 		log.Fatal("failed to close writer:", err)
+// 	}
+// }
