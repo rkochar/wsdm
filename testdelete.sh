@@ -8,3 +8,4 @@ echo "OrderDB"
 
 echo "PaymentDB"
 ./kubernetes/paymentdb/delete-paymentdb.sh
+

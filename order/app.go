@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	kafka "github.com/segmentio/kafka-go"
 	"log"
 	"net/http"
 	"os"
@@ -48,6 +47,9 @@ func main() {
 	db := client.Database("orders")
 	ordersCollection = db.Collection("orders")
 
+	// Run the web server.
+	log.Println("start producer-api ... !!")
+
 	router := mux.NewRouter()
 	router.HandleFunc("/", greetingHandler)
 	router.HandleFunc("/orders/create/{user_id}", createOrderHandler)
@@ -59,6 +61,9 @@ func main() {
 
 	//router.HandleFunc("/orders/send/{message}", sendKafkaMessageHandler)
 
+	//sendKafkaMessageHandler("Hello Deepali")
+
+	fmt.Println("here ... !!")
 	port := os.Getenv("PORT")
 	fmt.Printf("Current port is: %s\n", port)
 	if port == "" {
@@ -68,6 +73,11 @@ func main() {
 	// Set the listening address and port for the server
 	addr := fmt.Sprintf(":%s", port)
 	fmt.Printf("Starting order service at %s\n", addr)
+
+	fmt.Printf("going inside producer")
+	producerHandler()
+	log.Print("Reached here as well as well")
+
 	log.Fatal(http.ListenAndServe(addr, router))
 }
 
@@ -390,28 +400,86 @@ func on_nack(orderDocumentID *primitive.ObjectID) (Status, error) {
 	return status, updateOrderErr
 }
 
-func sendKafkaMessageHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	message := vars["message"]
+//func sendKafkaMessageHandler(w http.ResponseWriter, r *http.Request) {
+//	vars := mux.Vars(r)
+//	message := vars["message"]
+//
+//	fmt.Printf("Message to send over Kafka: %s\n", message)
+//
+//	// to produce messages
+//	topic := "stock-syn"
+//	partition := 0
+//
+//	conn, err := kafka.DialLeader(context.Background(), "tcp", "kafka-service:9092", topic, partition)
+//	if err != nil {
+//		log.Fatal("failed to dial leader:", err)
+//	}
+//
+//	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+//	_, err = conn.Write([]byte(message))
+//	if err != nil {
+//		log.Fatal("failed to write messages:", err)
+//	}
+//
+//	if err := conn.Close(); err != nil {
+//		log.Fatal("failed to close writer:", err)
+//	}
+//}
 
-	fmt.Printf("Message to send over Kafka: %s\n", message)
+//func producerHandler(kafkaWriter *kafka.Writer, msg string) {
+//	log.Print("Starting write")
+//	msgs := kafka.Message{
+//		Key:   []byte(fmt.Sprintf("address-%s", "test")),
+//		Value: []byte(msg),
+//	}
+//	log.Print(msgs)
+//	err := kafkaWriter.WriteMessages(context.Background(), msgs)
+//
+//	log.Print("Reached here")
+//
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//
+//	log.Print("Reached here as well")
+//}
+//
+//func getKafkaWriter(kafkaURL, topic string) *kafka.Writer {
+//	return &kafka.Writer{
+//		Addr:     kafka.TCP(kafkaURL),
+//		Topic:    topic,
+//		Balancer: &kafka.LeastBytes{},
+//	}
+//}
 
-	// to produce messages
-	topic := "wdm-test"
-	partition := 0
-
-	conn, err := kafka.DialLeader(context.Background(), "tcp", "localhost:9092", topic, partition)
-	if err != nil {
-		log.Fatal("failed to dial leader:", err)
+func newKafkaWriter(kafkaURL, topic string) *kafka.Writer {
+	return &kafka.Writer{
+		Addr:     kafka.TCP(kafkaURL),
+		Topic:    topic,
+		Balancer: &kafka.LeastBytes{},
 	}
+}
 
-	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-	_, err = conn.Write([]byte(message))
-	if err != nil {
-		log.Fatal("failed to write messages:", err)
-	}
+func producerHandler() {
+	// get kafka writer using environment variables.
 
-	if err := conn.Close(); err != nil {
-		log.Fatal("failed to close writer:", err)
+	kafkaURL := "kafka-broker.kafka:9092"
+	topic := "stock-syn"
+	writer := newKafkaWriter(kafkaURL, topic)
+	defer writer.Close()
+	fmt.Println("start producing ... !!")
+	for i := 0; ; i++ {
+		key := fmt.Sprintf("Key-%d", i)
+		msg := kafka.Message{
+			Key:   []byte(key),
+			Value: []byte(fmt.Sprint(uuid.New())),
+		}
+		err := writer.WriteMessages(context.Background(), msg)
+		if err != nil {
+			fmt.Println(err)
+		} else {
+			fmt.Println("produced", key)
+		}
+		time.Sleep(1 * time.Second)
 	}
 }

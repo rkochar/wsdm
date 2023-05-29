@@ -68,3 +68,7 @@ func add_transaction(sagaId primitive.ObjectID, service string) (error, *primiti
 	err, txnId := ConvertStringToMongoID(result.InsertedID.(primitive.ObjectID).Hex())
 	return err, txnId
 }
+
+func handle_order() {
+
+}
