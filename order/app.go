@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	kafka "github.com/segmentio/kafka-go"
 	"log"
 	"net/http"
 	"os"
