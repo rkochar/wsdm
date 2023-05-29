@@ -31,7 +31,7 @@ spec:
       containers:
         - name: stockdb-1
           image: mongo:4.4
-          imagePullPolicy: Never
+          imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 27117
             name: stockdb1

@@ -39,7 +39,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://stockdb-svc-0:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func main() {
 	router.HandleFunc("/orders/removeItem/{order_id}/{item_id}", removeItemHandler)
 	router.HandleFunc("/orders/checkout/{order_id}", checkoutHandler)
 
-	router.HandleFunc("/orders/send/{message}", sendKafkaMessageHandler)
+	//router.HandleFunc("/orders/send/{message}", sendKafkaMessageHandler)
 
 	port := os.Getenv("PORT")
 	fmt.Printf("Current port is: %s\n", port)
@@ -88,7 +88,7 @@ func getOrder(orderID string) (error, *Order) {
 }
 
 func greetingHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hi there!")
+	fmt.Fprintf(w, "Hello welcome to the order service!")
 }
 
 // TODO: set to POST method
@@ -293,46 +293,101 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Step 1: Make the payment
 	// Compensation: cancel payment
-	paymentSuccess := makePayment(*order)
-	if !paymentSuccess {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	// Step 2: Subtract the stock
-	// Compensation: re-add stock
-	for _, item := range order.Items {
-		//fmt.Printf("Item at index %d: %+v\n", i, item)
-		subtractStockSuccess := subtractStock(item, 1)
-		if !subtractStockSuccess {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-	}
+	//paymentSuccess := makePayment(*order)
+	//if !paymentSuccess {
+	//	w.WriteHeader(http.StatusBadRequest)
+	//	return
+	//}
+	//
+	//// Step 2: Subtract the stock
+	//// Compensation: re-add stock
+	//for _, item := range order.Items {
+	//	//fmt.Printf("Item at index %d: %+v\n", i, item)
+	//	subtractStockSuccess := subtractStock(item, 1)
+	//	if !subtractStockSuccess {
+	//		w.WriteHeader(http.StatusBadRequest)
+	//		return
+	//	}
+	//}
 
 	// Step 3: Update the order status
 	// Compensation: set order to unpaid
+
+	fmt.Print(order.TotalCost)
+
+	//TODO: send kafka message to order saga that local txn is started
 	convertDocIDErr, orderDocumentID := ConvertStringToMongoID(orderID)
 	if convertDocIDErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
+	status, updateOrderError := update_order(orderDocumentID)
+	if status == Failure {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Print(updateOrderError)
+	} else {
+		//TODO: send kafka message that local transaction is successful
+	}
+
+	status1, updateOrderError1 := on_ack(orderDocumentID)
+	if status1 == Failure {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Print(updateOrderError1)
+	} else {
+		//TODO: send kafka message that local transaction is successful
+	}
+}
+
+func update_order(orderDocumentID *primitive.ObjectID) (Status, error) {
+
+	status := Status(Pending)
 	orderFilter := bson.M{"_id": orderDocumentID}
 	orderUpdate := bson.M{
 		"$set": bson.M{
-			"paid": true,
+			"status": status,
+			"paid":   true,
+		},
+	}
+	_, updateOrderErr := ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
+	return status, updateOrderErr
+}
+
+func on_ack(orderDocumentID *primitive.ObjectID) (Status, error) {
+
+	status := Status(Completed)
+	orderFilter := bson.M{"_id": orderDocumentID}
+	orderUpdate := bson.M{
+		"$set": bson.M{
+			"status": status,
 		},
 	}
 	_, updateOrderErr := ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
 	if updateOrderErr != nil {
-		//fmt.Printf("Error during updating of order status: %s", updateOrderErr)
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		return Failure, updateOrderErr
 	}
 
-	// Step 4: Return checkout status
-	w.WriteHeader(http.StatusAccepted)
+	return Completed, nil
+}
+
+//rollback
+func on_nack(orderDocumentID *primitive.ObjectID) (Status, error) {
+	status := Status(Rollback_Completed)
+
+	orderFilter := bson.M{"_id": orderDocumentID}
+	orderUpdate := bson.M{
+		"$set": bson.M{
+			"status": status,
+			"paid":   false,
+		},
+	}
+	_, updateOrderErr := ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
+
+	if updateOrderErr != nil {
+		return Rollback_Failure, updateOrderErr
+	}
+
+	return status, updateOrderErr
 }
 
 func sendKafkaMessageHandler(w http.ResponseWriter, r *http.Request) {

@@ -55,13 +55,13 @@ func startKafkaConsumer() {
 }
 
 func main() {
-	startKafkaConsumer()
+	//startKafkaConsumer()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	var err error
-	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://stockdb-svc-0:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -149,41 +149,11 @@ func subtractHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
-		getItemErr, item := getItem(itemID)
-		if getItemErr != nil {
-			// fmt.Printf("Get item error")
-			w.WriteHeader(http.StatusBadRequest)
-			return nil, getItemErr
-		}
-		if item.Stock < *intAmount {
-			// fmt.Printf("Not enough stock")
-			return nil, errors.New("not enough stock to subtract")
-		}
-		update := bson.M{
-			"$inc": bson.M{
-				"stock": -*intAmount,
-			},
-		}
-		_, updateErr := stockCollection.UpdateOne(context.Background(), bson.M{"_id": documentID}, update)
-		if updateErr != nil {
-			// fmt.Printf("Update stock error: %s", updateErr)
-			return nil, updateErr
-		}
-		return nil, nil
-	}
+	status, err := onSubtract(documentID, intAmount)
 
-	session, startSessionErr := client.StartSession()
-	// fmt.Printf("Started session")
-	if startSessionErr != nil {
+	if status == Failure {
 		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	ctx := context.Background()
-	defer session.EndSession(ctx)
-	_, sessionWithTransactionErr := session.WithTransaction(ctx, callback)
-	if sessionWithTransactionErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		fmt.Print(err)
 		return
 	}
 }
@@ -203,16 +173,12 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filter := bson.M{"_id": documentID}
-	update := bson.M{
-		"$inc": bson.M{
-			"stock": intAmount,
-		},
-	}
-	_, updateErr := stockCollection.UpdateOne(context.Background(), filter, update)
-	for updateErr != nil {
-		// fmt.Printf("Retrying adding item...")
-		_, updateErr = stockCollection.UpdateOne(context.Background(), filter, update)
+	status, err := onAdd(documentID, intAmount)
+
+	if status == Failure {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Print(err)
+		return
 	}
 }
 
@@ -244,4 +210,51 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+}
+
+func onAdd(itemID *primitive.ObjectID, amount *int64) (Status, error) {
+	getItemErr, item := getItem(itemID.String())
+	if getItemErr != nil {
+		return Failure, getItemErr
+	}
+	if item.Stock < *amount {
+		// fmt.Printf("Not enough stock")
+		return Failure, errors.New("not enough stock to subtract")
+	}
+	update := bson.M{
+		"$inc": bson.M{
+			"stock": -*amount,
+		},
+	}
+	_, updateErr := stockCollection.UpdateOne(context.Background(), bson.M{"_id": itemID}, update)
+	if updateErr != nil {
+		// fmt.Printf("Update stock error: %s", updateErr)
+		return Failure, updateErr
+	}
+	return Completed, nil
+
+}
+
+//rollback fn
+func onSubtract(itemID *primitive.ObjectID, amount *int64) (Status, error) {
+	getItemErr, item := getItem(itemID.String())
+	if getItemErr != nil {
+		return Failure, getItemErr
+	}
+	if item.Stock < *amount {
+		// fmt.Printf("Not enough stock")
+		return Failure, errors.New("not enough stock to subtract")
+	}
+	update := bson.M{
+		"$inc": bson.M{
+			"stock": +*amount,
+		},
+	}
+	_, updateErr := stockCollection.UpdateOne(context.Background(), bson.M{"_id": itemID}, update)
+	if updateErr != nil {
+		// fmt.Printf("Update stock error: %s", updateErr)
+		return Failure, updateErr
+	}
+	return Completed, nil
+
 }
