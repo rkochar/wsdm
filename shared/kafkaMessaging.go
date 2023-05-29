@@ -77,6 +77,10 @@ func SetUpKafkaListener(services []string, action func(*SagaMessage) (*SagaMessa
 
 					returnMessage, senderName := action(message)
 
+					if returnMessage == nil {
+						continue
+					}
+
 					sendErr := sendSagaMessage(returnMessage, senderMap[senderName])
 					if sendErr != nil {
 						log.Printf("Error sending message: %s\n", sendErr)

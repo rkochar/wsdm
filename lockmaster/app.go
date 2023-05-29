@@ -38,6 +38,7 @@ func main() {
 		[]string{"order", "stock", "payment"},
 		func(message *shared.SagaMessage) (*shared.SagaMessage, string) {
 			var nextAction Action
+			var knownMessage bool
 
 			if message.Name == "ABORT-CHECKOUT-SAGA" {
 				// TODO: get last successful message name from log
@@ -46,7 +47,11 @@ func main() {
 				log.Printf("Abort not supported yet")
 				return nil, ""
 			} else {
-				nextAction = successfulActionMap[message.Name]
+				nextAction, knownMessage = successfulActionMap[message.Name]
+			}
+
+			if !knownMessage {
+				return nil, ""
 			}
 
 			outMessage := shared.SagaMessage{

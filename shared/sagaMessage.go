@@ -51,3 +51,13 @@ func sendSagaMessage(message *SagaMessage, conn *kafka.Conn) error {
 	}
 	return nil
 }
+
+func SagaMessageConvertStartToEnd(message *SagaMessage) *SagaMessage {
+	parts := strings.Split(message.Name, "-")
+	parts[0] = "END"
+	return &SagaMessage{
+		Name:   strings.Join(parts, "-"),
+		SagaID: message.SagaID,
+		Order:  message.Order,
+	}
+}

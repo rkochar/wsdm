@@ -20,14 +20,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type Order struct {
-	OrderID   string   `json:"order_id"`
-	Paid      bool     `json:"paid"`
-	Items     []string `json:"items"`
-	UserID    string   `json:"user_id"`
-	TotalCost float64  `json:"total_cost"`
-}
-
 var client *mongo.Client
 var ordersCollection *mongo.Collection
 
@@ -68,14 +60,14 @@ func main() {
 	log.Fatal(http.ListenAndServe(addr, router))
 }
 
-func getOrder(orderID string) (error, *Order) {
+func getOrder(orderID string) (error, *shared.Order) {
 	convertDocIDErr, documentID := shared.ConvertStringToMongoID(orderID)
 	if convertDocIDErr != nil {
 		return convertDocIDErr, nil
 	}
 
 	filter := bson.M{"_id": documentID}
-	var order Order
+	var order shared.Order
 	findDocErr := ordersCollection.FindOne(context.Background(), filter).Decode(&order)
 	if findDocErr != nil {
 		return findDocErr, nil
@@ -97,7 +89,7 @@ func createOrderHandler(w http.ResponseWriter, r *http.Request) {
 	userID := vars["user_id"]
 	// fmt.Printf("Creating order for user %s\n", userID)
 
-	order := Order{
+	order := shared.Order{
 		Paid:      false,
 		Items:     []string{},
 		UserID:    userID,
@@ -256,7 +248,7 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 // PAYMENT_MAKE_USERID_ORDERID_TOTALCOST
 // PAYMENT_CANCEL_USERID_ORDERID_TOTALCOST
 
-func makePayment(order Order) bool {
+func makePayment(order shared.Order) bool {
 	URL := fmt.Sprintf("http://localhost:8081/payment/pay/%s/%s/%f", order.UserID, order.OrderID, order.TotalCost)
 	fmt.Printf("Making payment via URL: %s\n", URL)
 	resp, err := http.Post(URL, "application/json", strings.NewReader(``))
