@@ -1,19 +1,19 @@
 #apiVersion: apps/v1
 #kind: Deployment
 #metadata:
-#  name: stock
+#  name: payment
 #spec:
 #  replicas: 5
 #  selector:
 #    matchLabels:
-#      app: stock
+#      app: payment
 #  template:
 #    metadata:
 #      labels:
 #        app: stock
 #    spec:
 #      containers:
-#        - name: stock
+#        - name: payment
 #          image: testmongoconnection:latest
 #          imagePullPolicy: IfNotPresent
 #          ports:

@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
         - name: order
-          image: ghcr.io/gijspaardekooper/wdm-g1/order:v0.1.7
+          image: ghcr.io/rkochar/wsdm/order:v0.0.0
           imagePullPolicy: IfNotPresent
           resources:
             limits:

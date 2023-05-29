@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
         - name: payment
-          image: ghcr.io/gijspaardekooper/wdm-g1/payment:v0.1.7
+          image: ghcr.io/rkochar/wsdm/payment:v0.0.0
           imagePullPolicy: IfNotPresent
           resources:
             limits:

@@ -7,8 +7,8 @@ spec:
     app: stockdb-1
   ports:
     - name: stockdb-1
-      port: 27117
-      targetPort: 27117
+      port: 27017
+      targetPort: 27017
   clusterIP: None
 
 ---
@@ -30,10 +30,10 @@ spec:
     spec:
       containers:
         - name: stockdb-1
-          image: mongo:4.4
-          imagePullPolicy: Never
+          image: mongo:6
+          imagePullPolicy: IfNotPresent
           ports:
-          - containerPort: 27117
+          - containerPort: 27017
             name: stockdb1
           volumeMounts:
           - name: stockdb-pvc-1
@@ -43,7 +43,6 @@ spec:
       name: stockdb-pvc-1
     spec:
       accessModes: [ "ReadWriteOnce" ]
-        #      storageClassName: "stockdb-sc-1"
       resources:
         requests:
           storage: 1Gi
