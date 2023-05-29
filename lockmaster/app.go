@@ -37,8 +37,9 @@ func main() {
 	shared.SetUpKafkaListener(
 		[]string{"order", "stock", "payment"},
 		func(message *shared.SagaMessage) (*shared.SagaMessage, string) {
+
 			var nextAction Action
-			var knownMessage bool
+			var messageResponseAvailable bool
 
 			if message.Name == "ABORT-CHECKOUT-SAGA" {
 				// TODO: get last successful message name from log
@@ -47,11 +48,17 @@ func main() {
 				log.Printf("Abort not supported yet")
 				return nil, ""
 			} else {
-				nextAction, knownMessage = successfulActionMap[message.Name]
+				nextAction, messageResponseAvailable = successfulActionMap[message.Name]
 			}
 
-			if !knownMessage {
+			if !messageResponseAvailable {
 				return nil, ""
+			}
+
+			// TODO: write incoming message to database
+
+			if message.SagaID == "" {
+				// TODO: add new id from database for next message
 			}
 
 			outMessage := shared.SagaMessage{
@@ -59,6 +66,8 @@ func main() {
 				SagaID: message.SagaID,
 				Order:  message.Order,
 			}
+
+			// TODO: write outgoing message to database
 
 			return &outMessage, nextAction.topic
 		},

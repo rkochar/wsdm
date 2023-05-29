@@ -31,6 +31,44 @@ var userCollection *mongo.Collection
 var paymentCollection *mongo.Collection
 
 func main() {
+	shared.SetUpKafkaListener(
+		[]string{"payment"},
+		func(message *shared.SagaMessage) (*shared.SagaMessage, string) {
+
+			returnMessage := shared.SagaMessageConvertStartToEnd(message)
+
+			// TODO: remove code duplication
+
+			if message.Name == "START-MAKE-PAYMENT" {
+				// ignore error, wil not happen
+				_, mongoUserID := shared.ConvertStringToMongoID(message.Order.UserID)
+				_, mongoOrderID := shared.ConvertStringToMongoID(message.Order.OrderID)
+
+				clientError, serverError := pay(mongoUserID, mongoOrderID, &message.Order.TotalCost)
+				if clientError != nil || serverError != nil {
+					returnMessage.Name = "ABORT-CHECKOUT-SAGA"
+				}
+
+				return returnMessage, "payment-ack"
+			}
+
+			if message.Name == "START-CANCEL-PAYMENT" {
+				// ignore error, wil not happen
+				_, mongoUserID := shared.ConvertStringToMongoID(message.Order.UserID)
+				_, mongoOrderID := shared.ConvertStringToMongoID(message.Order.OrderID)
+
+				clientError, serverError := cancelPayment(mongoUserID, mongoOrderID)
+				if clientError != nil || serverError != nil {
+					returnMessage.Name = "ABORT-CHECKOUT-SAGA"
+				}
+
+				return returnMessage, "payment-ack"
+			}
+
+			return nil, ""
+		},
+	)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -65,33 +103,18 @@ func main() {
 	log.Fatal(http.ListenAndServe(addr, router))
 }
 
-func getUser(userID string) (error, *shared.User) {
-	convErr, documentID := shared.ConvertStringToMongoID(userID)
-	if convErr != nil {
-		return convErr, nil
-	}
-
+func getUser(documentID *primitive.ObjectID) (error, *shared.User) {
 	var user shared.User
 	err := userCollection.FindOne(context.Background(), bson.M{"_id": documentID}).Decode(&user)
 	if err != nil {
 		return err, nil
 	}
-	// fmt.Printf("Found user: %+v\n", user)
-	user.UserID = userID
+	user.UserID = documentID.String()
 	return nil, &user
 }
 
-func getPayment(userID string, orderID string) (error, *shared.Payment) {
-	userIdConvErr, mongoUserID := shared.ConvertStringToMongoID(userID)
-	if userIdConvErr != nil {
-		return userIdConvErr, nil
-	}
-	orderIdConvErr, mongoOrderID := shared.ConvertStringToMongoID(orderID)
-	if orderIdConvErr != nil {
-		return orderIdConvErr, nil
-	}
-
-	filter := bson.M{"userid": mongoUserID, "orderid": mongoOrderID}
+func getPayment(userID *primitive.ObjectID, orderID *primitive.ObjectID) (error, *shared.Payment) {
+	filter := bson.M{"userid": userID, "orderid": orderID}
 	var payment shared.Payment
 	findErr := paymentCollection.FindOne(context.Background(), filter).Decode(&payment)
 	if findErr != nil {
@@ -100,145 +123,7 @@ func getPayment(userID string, orderID string) (error, *shared.Payment) {
 	return nil, &payment
 }
 
-func payHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	userID := vars["user_id"]
-	orderID := vars["order_id"]
-	amount := vars["amount"]
-
-	userIdConvErr, mongoUserID := shared.ConvertStringToMongoID(userID)
-	if userIdConvErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	amountConvErr, amountFloat := shared.ConvertStringToFloat(amount)
-	if amountConvErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
-		getuserErr, user := getUser(userID)
-		if getuserErr != nil {
-			// fmt.Printf("Get item error")
-			w.WriteHeader(http.StatusBadRequest)
-			return nil, getuserErr
-		}
-		if user.Credit < *amountFloat {
-			// fmt.Printf("Not enough stock")
-			return nil, errors.New("not enough credits to pay")
-		}
-
-		userFilter := bson.M{
-			"_id": mongoUserID,
-		}
-		userUpdate := bson.M{
-			"$inc": bson.M{
-				"credit": -*amountFloat,
-			},
-		}
-		_, userUpdateError := userCollection.UpdateOne(context.Background(), userFilter, userUpdate)
-		if userUpdateError != nil {
-			return nil, userUpdateError
-		}
-
-		payment := shared.Payment{
-			UserID:  userID,
-			OrderID: orderID,
-			Amount:  *amountFloat,
-			Paid:    true,
-		}
-		_, insertErr := paymentCollection.InsertOne(context.Background(), payment)
-		if insertErr != nil {
-			return nil, insertErr
-		}
-
-		return nil, nil
-	}
-
-	session, startSessionErr := client.StartSession()
-	// fmt.Printf("Started session")
-	if startSessionErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	ctx := context.Background()
-	defer session.EndSession(ctx)
-	_, sessionWithTransactionErr := session.WithTransaction(ctx, callback)
-	if sessionWithTransactionErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-}
-
-func cancelPaymentHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	userID := vars["user_id"]
-	orderID := vars["order_id"]
-
-	// TODO: send kafka message to cancel order
-
-	userIdConvErr, mongoUserID := shared.ConvertStringToMongoID(userID)
-	if userIdConvErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	orderIdConvErr, mongoOrderID := shared.ConvertStringToMongoID(orderID)
-	if orderIdConvErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
-		getPaymentErr, payment := getPayment(userID, orderID)
-		if getPaymentErr != nil {
-			return nil, getPaymentErr
-		}
-
-		userFilter := bson.M{
-			"_id": mongoUserID,
-		}
-		userUpdate := bson.M{
-			"$inc": bson.M{
-				"credit": payment.Amount,
-			},
-		}
-		_, userUpdateError := userCollection.UpdateOne(context.Background(), userFilter, userUpdate)
-		if userUpdateError != nil {
-			return nil, userUpdateError
-		}
-
-		paymentFilter := bson.M{
-			"userid":  mongoUserID,
-			"orderid": mongoOrderID,
-		}
-		paymentUpdate := bson.M{
-			"$set": bson.M{
-				"paid": false,
-			},
-		}
-		_, paymentUpdateErr := paymentCollection.UpdateOne(context.Background(), paymentFilter, paymentUpdate)
-		if paymentUpdateErr != nil {
-			return nil, paymentUpdateErr
-		}
-
-		return nil, nil
-	}
-
-	session, startSessionErr := client.StartSession()
-	// fmt.Printf("Started session")
-	if startSessionErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	ctx := context.Background()
-	defer session.EndSession(ctx)
-	_, sessionWithTransactionErr := session.WithTransaction(ctx, callback)
-	if sessionWithTransactionErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-}
+// Functions only used by http
 
 func paymentStatusHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -337,7 +222,13 @@ func findUserHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := vars["user_id"]
 
-	userFindErr, user := getUser(userID)
+	userIdConvErr, mongoUserID := shared.ConvertStringToMongoID(userID)
+	if userIdConvErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	userFindErr, user := getUser(mongoUserID)
 	if userFindErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -349,4 +240,172 @@ func findUserHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+}
+
+// Functions used by http and kafka
+
+func payHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	userID := vars["user_id"]
+	orderID := vars["order_id"]
+	amount := vars["amount"]
+
+	userIdConvErr, mongoUserID := shared.ConvertStringToMongoID(userID)
+	if userIdConvErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	orderIdConvErr, mongoOrderID := shared.ConvertStringToMongoID(orderID)
+	if orderIdConvErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	amountConvErr, amountFloat := shared.ConvertStringToFloat(amount)
+	if amountConvErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	clientError, serverError := pay(mongoUserID, mongoOrderID, amountFloat)
+
+	if clientError != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if serverError != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func pay(userID *primitive.ObjectID, orderID *primitive.ObjectID, amount *float64) (clientError error, serverError error) {
+	callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
+		getuserErr, user := getUser(userID)
+		if getuserErr != nil {
+			return nil, getuserErr
+		}
+		if user.Credit < *amount {
+			return nil, errors.New("not enough credits to pay")
+		}
+
+		userFilter := bson.M{
+			"_id": userID,
+		}
+		userUpdate := bson.M{
+			"$inc": bson.M{
+				"credit": -*amount,
+			},
+		}
+		_, userUpdateError := userCollection.UpdateOne(context.Background(), userFilter, userUpdate)
+		if userUpdateError != nil {
+			return nil, userUpdateError
+		}
+
+		payment := shared.Payment{
+			UserID:  userID.String(),
+			OrderID: orderID.String(),
+			Amount:  *amount,
+			Paid:    true,
+		}
+		_, insertErr := paymentCollection.InsertOne(context.Background(), payment)
+		if insertErr != nil {
+			return nil, insertErr
+		}
+
+		return nil, nil
+	}
+
+	var session mongo.Session
+	session, serverError = client.StartSession()
+	if serverError != nil {
+		return
+	}
+
+	ctx := context.Background()
+	defer session.EndSession(ctx)
+
+	_, clientError = session.WithTransaction(ctx, callback)
+
+	return
+}
+
+func cancelPaymentHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	userID := vars["user_id"]
+	orderID := vars["order_id"]
+
+	// TODO: send kafka message to cancel order
+
+	userIdConvErr, mongoUserID := shared.ConvertStringToMongoID(userID)
+	if userIdConvErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	orderIdConvErr, mongoOrderID := shared.ConvertStringToMongoID(orderID)
+	if orderIdConvErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	clientError, serverError := cancelPayment(mongoUserID, mongoOrderID)
+
+	if clientError != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if serverError != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func cancelPayment(userID *primitive.ObjectID, orderID *primitive.ObjectID) (clientError error, serverError error) {
+	callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
+		getPaymentErr, payment := getPayment(userID, orderID)
+		if getPaymentErr != nil {
+			return nil, getPaymentErr
+		}
+
+		userFilter := bson.M{
+			"_id": userID,
+		}
+		userUpdate := bson.M{
+			"$inc": bson.M{
+				"credit": payment.Amount,
+			},
+		}
+		_, userUpdateError := userCollection.UpdateOne(context.Background(), userFilter, userUpdate)
+		if userUpdateError != nil {
+			return nil, userUpdateError
+		}
+
+		paymentFilter := bson.M{
+			"userid":  userID,
+			"orderid": orderID,
+		}
+		paymentUpdate := bson.M{
+			"$set": bson.M{
+				"paid": false,
+			},
+		}
+		_, paymentUpdateErr := paymentCollection.UpdateOne(context.Background(), paymentFilter, paymentUpdate)
+		if paymentUpdateErr != nil {
+			return nil, paymentUpdateErr
+		}
+
+		return nil, nil
+	}
+
+	var session mongo.Session
+	session, serverError = client.StartSession()
+	if serverError != nil {
+		return
+	}
+
+	ctx := context.Background()
+	defer session.EndSession(ctx)
+
+	_, clientError = session.WithTransaction(ctx, callback)
+
+	return
 }

@@ -35,6 +35,8 @@ func main() {
 
 			returnMessage := shared.SagaMessageConvertStartToEnd(message)
 
+			// TODO: remove code duplication
+
 			if message.Name == "START-SUBTRACT-STOCK" {
 				changes := make([]ItemChange, len(message.Order.Items))
 

@@ -1,7 +1,9 @@
 package shared
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -31,11 +33,11 @@ func SetUpKafkaListener(services []string, action func(*SagaMessage) (*SagaMessa
 
 	for _, serviceName := range services {
 		topicSyn := serviceName + "-syn"
-		senderMap[topicSyn] = createTopicSender(topicSyn)
+		senderMap[topicSyn] = CreateTopicSender(topicSyn)
 		defer senderMap[topicSyn].Close()
 
 		topicAck := serviceName + "-ack"
-		readerMap[topicAck] = createTopicReader(topicAck, config)
+		readerMap[topicAck] = CreateTopicReader(topicAck, config)
 		defer readerMap[topicAck].Close()
 	}
 
@@ -69,7 +71,7 @@ func SetUpKafkaListener(services []string, action func(*SagaMessage) (*SagaMessa
 					fmt.Printf("Received message for topic %s: Partition=%d, Offset=%d, Key=%s, Value=%s\n",
 						topic, m.Partition, m.Offset, string(m.Key), string(m.Value))
 
-					parseErr, message := parseSagaMessage(string(m.Value))
+					parseErr, message := ParseSagaMessage(string(m.Value))
 					if parseErr != nil {
 						log.Printf("Error parsing message: %s\n", parseErr)
 						continue
@@ -81,7 +83,7 @@ func SetUpKafkaListener(services []string, action func(*SagaMessage) (*SagaMessa
 						continue
 					}
 
-					sendErr := sendSagaMessage(returnMessage, senderMap[senderName])
+					sendErr := SendSagaMessage(returnMessage, senderMap[senderName])
 					if sendErr != nil {
 						log.Printf("Error sending message: %s\n", sendErr)
 					}
@@ -95,7 +97,7 @@ func SetUpKafkaListener(services []string, action func(*SagaMessage) (*SagaMessa
 	log.Println("Received interrupt signal. Shutting down...")
 }
 
-func createTopicSender(topic string) *kafka.Conn {
+func CreateTopicSender(topic string) *kafka.Conn {
 	conn, err := kafka.DialLeader(context.Background(), "tcp", "localhost:9092", topic, 0)
 	if err != nil {
 		log.Fatal("failed to dial leader:", err)
@@ -103,8 +105,28 @@ func createTopicSender(topic string) *kafka.Conn {
 	return conn
 }
 
-func createTopicReader(topicName string, config kafka.ReaderConfig) *kafka.Reader {
+func CreateTopicReader(topicName string, config kafka.ReaderConfig) *kafka.Reader {
 	config.Topic = topicName
 	reader := kafka.NewReader(config)
 	return reader
+}
+
+func SendSagaMessage(message *SagaMessage, conn *kafka.Conn) error {
+	jsonByteArray, marshalError := json.Marshal(message.Order)
+	if marshalError != nil {
+		return marshalError
+	}
+
+	messageBuffer := bytes.Buffer{}
+	messageBuffer.WriteString("START_CHECKOUT-SAGA_")
+	messageBuffer.WriteString(message.SagaID)
+	messageBuffer.WriteString("_")
+	messageBuffer.Write(jsonByteArray)
+
+	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	_, writeErr := conn.Write(messageBuffer.Bytes())
+	if writeErr != nil {
+		return writeErr
+	}
+	return nil
 }

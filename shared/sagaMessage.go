@@ -1,12 +1,8 @@
 package shared
 
 import (
-	"bytes"
 	"encoding/json"
 	"strings"
-	"time"
-
-	"github.com/segmentio/kafka-go"
 )
 
 type SagaMessage struct {
@@ -15,7 +11,7 @@ type SagaMessage struct {
 	Order  Order
 }
 
-func parseSagaMessage(message string) (error, *SagaMessage) {
+func ParseSagaMessage(message string) (error, *SagaMessage) {
 	parts := strings.Split(message, "_")
 
 	order := Order{}
@@ -30,26 +26,6 @@ func parseSagaMessage(message string) (error, *SagaMessage) {
 		SagaID: parts[1],
 		Order:  order,
 	}
-}
-
-func sendSagaMessage(message *SagaMessage, conn *kafka.Conn) error {
-	jsonByteArray, marshalError := json.Marshal(message.Order)
-	if marshalError != nil {
-		return marshalError
-	}
-
-	messageBuffer := bytes.Buffer{}
-	messageBuffer.WriteString("START_CHECKOUT-SAGA_")
-	messageBuffer.WriteString(message.SagaID)
-	messageBuffer.WriteString("_")
-	messageBuffer.Write(jsonByteArray)
-
-	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-	_, writeErr := conn.Write(messageBuffer.Bytes())
-	if writeErr != nil {
-		return writeErr
-	}
-	return nil
 }
 
 func SagaMessageConvertStartToEnd(message *SagaMessage) *SagaMessage {
