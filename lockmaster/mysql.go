@@ -10,52 +10,37 @@ import (
 )
 
 type Saga struct {
-	ID        int
+	ID        int64
 	Timestamp time.Time
 }
 
 type SagaLog struct {
-	ID           int
-	SagaID       int
-	MessageType  int
-	MessageEvent int
+	ID           int64
+	SagaID       int64
+	MessageType  int64
+	MessageEvent int64
 	SagaContents string
 	Timestamp    time.Time
 }
 
-var db *sql.DB
+type MySQLConnection struct {
+	db *sql.DB
+}
 
-func main() {
-	err := connectDB()
+func (dbConn *MySQLConnection) init() {
+	err := dbConn.connectDB()
 	if err != nil {
 		log.Fatal("Failed to connect to the database:", err)
 	}
-	defer db.Close()
 
-	err = db.Ping()
+	err = dbConn.db.Ping()
 	if err != nil {
 		log.Fatal("Failed to ping the database:", err)
 	}
 	fmt.Println("Connected to the MySQL database!")
-
-	sagaID, createSagaErr := createSaga()
-	if createSagaErr != nil {
-		fmt.Printf("Create SAGA error: %s\n", createSagaErr)
-	}
-	fmt.Printf("ID of inserted SAGA: %d\n", *sagaID)
-
-	printSAGAs := printAllSAGAs()
-	if printSAGAs != nil {
-		fmt.Printf("Print SAGAs error: %s\n", printSAGAs)
-	}
-
-	printSAGALogs := printAllSAGALogs()
-	if printSAGALogs != nil {
-		fmt.Printf("Print SAGALogs error: %s\n", printSAGALogs)
-	}
 }
 
-func connectDB() error {
+func (dbConn *MySQLConnection) connectDB() error {
 	dbUser := "root"
 	dbPass := "new_password"
 	dbName := "saga_log"
@@ -64,15 +49,15 @@ func connectDB() error {
 	connString := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true", dbUser, dbPass, dbHost, dbPort, dbName)
 
 	var err error
-	db, err = sql.Open("mysql", connString)
+	dbConn.db, err = sql.Open("mysql", connString)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func createSaga() (*int64, error) {
-	query, prepareQueryErr := db.Prepare("INSERT INTO sagas (ID, timestamp) VALUES (DEFAULT, DEFAULT)")
+func (dbConn *MySQLConnection) createSaga() (*int64, error) {
+	query, prepareQueryErr := dbConn.db.Prepare("INSERT INTO sagas (ID, timestamp) VALUES (DEFAULT, DEFAULT)")
 	if prepareQueryErr != nil {
 		return nil, prepareQueryErr
 	}
@@ -90,8 +75,8 @@ func createSaga() (*int64, error) {
 	return &insertedID, nil
 }
 
-func insertSagaLog(sagaLog SagaLog) error {
-	query, prepareQueryErr := db.Prepare("INSERT INTO saga_log (saga_id, saga_contents) VALUES (?, ?)")
+func (dbConn *MySQLConnection) insertSagaLog(sagaLog SagaLog) error {
+	query, prepareQueryErr := dbConn.db.Prepare("INSERT INTO saga_log (saga_id, saga_contents) VALUES (?, ?)")
 	if prepareQueryErr != nil {
 		return prepareQueryErr
 	}
@@ -104,9 +89,9 @@ func insertSagaLog(sagaLog SagaLog) error {
 	return nil
 }
 
-func getLatestSagaLog(sagaID int64) (*SagaLog, error) {
+func (dbConn *MySQLConnection) getLatestSagaLog(sagaID int64) (*SagaLog, error) {
 	qString := "SELECT ID, saga_id, saga_contents, timestamp FROM sagas WHERE saga_id = ? ORDER BY timestamp DESC LIMIT 1"
-	query, prepareQueryErr := db.Prepare(qString)
+	query, prepareQueryErr := dbConn.db.Prepare(qString)
 	if prepareQueryErr != nil {
 		return nil, prepareQueryErr
 	}
@@ -126,9 +111,11 @@ func getLatestSagaLog(sagaID int64) (*SagaLog, error) {
 }
 
 // DEBUG METHODS
-func printAllSAGAs() error {
-	rows, err := db.Query("SELECT * FROM sagas")
+func (dbConn *MySQLConnection) printAllSAGAs() error {
+	fmt.Printf("Printing all SAGAs!\n")
+	rows, err := dbConn.db.Query("SELECT * FROM sagas")
 	if err != nil {
+		fmt.Printf("Query err: %s\n", err)
 		return err
 	}
 	defer rows.Close()
@@ -144,8 +131,8 @@ func printAllSAGAs() error {
 	return nil
 }
 
-func printAllSAGALogs() error {
-	rows, err := db.Query("SELECT * FROM saga_log")
+func (dbConn *MySQLConnection) printAllSAGALogs() error {
+	rows, err := dbConn.db.Query("SELECT * FROM saga_log")
 	if err != nil {
 		return err
 	}

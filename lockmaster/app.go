@@ -33,7 +33,15 @@ var failActionMap = map[string]Action{
 	"START-UPDATE-ORDER": {"START-CANCEL-PAYMENT", "payment-syn"},
 }
 
+var db MySQLConnection
+
 func main() {
+	db = MySQLConnection{}
+	defer db.db.Close()
+	db.init()
+
+	db.printAllSAGAs()
+
 	shared.SetUpKafkaListener(
 		[]string{"order", "stock", "payment"},
 		func(message *shared.SagaMessage) (*shared.SagaMessage, string) {

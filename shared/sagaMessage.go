@@ -7,7 +7,7 @@ import (
 
 type SagaMessage struct {
 	Name   string
-	SagaID string
+	SagaID int64
 	Order  Order
 }
 
@@ -20,10 +20,14 @@ func ParseSagaMessage(message string) (error, *SagaMessage) {
 	if unmarshalErr != nil {
 		return unmarshalErr, nil
 	}
+	convErr, sagaIntID := ConvertStringToInt(parts[1])
+	if convErr != nil {
+		return convErr, nil
+	}
 
 	return nil, &SagaMessage{
 		Name:   parts[0],
-		SagaID: parts[1],
+		SagaID: *sagaIntID,
 		Order:  order,
 	}
 }
