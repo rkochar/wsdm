@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
+	//"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -76,9 +76,9 @@ func main() {
 	addr := fmt.Sprintf(":%s", port)
 	fmt.Printf("Starting order service at %s\n", addr)
 
-	fmt.Printf("going inside producer")
+	fmt.Println("going inside producer")
 	producerHandler()
-	log.Print("Reached here as well as well")
+	log.Println("Reached here as wellll")
 
 	log.Fatal(http.ListenAndServe(addr, router))
 }
@@ -462,22 +462,28 @@ func newKafkaWriter(kafkaURL, topic string) *kafka.Writer {
 	}
 }
 
+
 func producerHandler() {
 	// get kafka writer using environment variables.
 
-	kafkaURL := "kafka-broker.kafka:9092"
+	fmt.Println("In producerHandler")
+	kafkaURL := "kafka-service:9092"
 	topic := "stock-syn"
-	writer := newKafkaWriter(kafkaURL, topic)
-	defer writer.Close()
-	fmt.Println("start producing ... !!")
+	partition := 1
+
+	conn, err := kafka.DialLeader(context.Background(), "tcp", kafkaURL, topic, partition)
+	if err != nil {
+		log.Fatal("failed to dial leader:", err)
+		}
+	fmt.Println("start producing!!!")
+
 	for i := 0; ; i++ {
 		key := fmt.Sprintf("Key-%d", i)
-		msg := kafka.Message{
-			Key:   []byte(key),
-			Value: []byte(fmt.Sprint(uuid.New())),
-		}
-		err := writer.WriteMessages(context.Background(), msg)
+		msg := kafka.Message{Value: []byte("test write")}
+
+		_, err := conn.WriteMessages(msg)
 		if err != nil {
+			fmt.Print("if err: ")
 			fmt.Println(err)
 		} else {
 			fmt.Println("produced", key)
@@ -485,3 +491,30 @@ func producerHandler() {
 		time.Sleep(1 * time.Second)
 	}
 }
+
+//func producerHandler() {
+//	// get kafka writer using environment variables.
+//
+//	kafkaURL := "kafka-service:9092"
+//	topic := "stock-syn"
+//	writer := newKafkaWriter(kafkaURL, topic)
+//	defer writer.Close()
+//	fmt.Println("start produccccing ... !!")
+//
+//	for i := 0; ; i++ {
+//		key := fmt.Sprintf("Key-%d", i)
+//		msg := kafka.Message{
+//			Key:   []byte(key),
+//			Value: []byte(fmt.Sprint(uuid.New())),
+//		}
+//
+//		err := writer.WriteMessages(context.Background(), msg)
+//		if err != nil {
+//			fmt.Print("if err: ")
+//			fmt.Println(err)
+//		} else {
+//			fmt.Println("produced", key)
+//		}
+//		time.Sleep(1 * time.Second)
+//	}
+//}
