@@ -71,5 +71,5 @@
 - `START-CANCEL-PAYMENT_{SAGA_ID}_{ORDER_JSON}`
 
 # SAGA Database Schema
-
 Entry: name | saga-id | json-content | (saga-position / timestamp)
+PK: saga-id
