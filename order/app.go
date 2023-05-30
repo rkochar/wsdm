@@ -467,11 +467,12 @@ func producerHandler() {
 	// get kafka writer using environment variables.
 
 	fmt.Println("In producerHandler")
-	kafkaURL := "kafka-service:9092"
+	kafkaURL := "kafka-service.kafka:9092"
 	topic := "stock-syn"
 	partition := 1
 
 	conn, err := kafka.DialLeader(context.Background(), "tcp", kafkaURL, topic, partition)
+	defer conn.Close()
 	if err != nil {
 		log.Fatal("failed to dial leader:", err)
 		}
