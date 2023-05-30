@@ -25,7 +25,7 @@ Rows look like:
 ID (int)
 saga_id (int)
 message_type (int)
-message (int)
+message_event (int)
 saga_contents (text)
 timestamp (timestamp)
 
