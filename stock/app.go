@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/segmentio/kafka-go"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
+
+	"WDM-G1/shared"
 
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
@@ -19,43 +20,66 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type Item struct {
-	StockID string  `json:"item_id"`
-	Stock   int64   `json:"stock"`
-	Price   float64 `json:"price"`
+type ItemChange struct {
+	itemID *primitive.ObjectID
+	amount int64
 }
 
 var client *mongo.Client
 var stockCollection *mongo.Collection
 
-// var ctx context.Context
-// var cancel context.CancelFunc
-
-func startKafkaConsumer() {
-	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:  []string{"localhost:9092"},
-		GroupID:  "my-group",
-		Topic:    "wdm-test",
-		MinBytes: 10e3, // 10KB
-		MaxBytes: 10e6, // 10MB
-	})
-
-	go func() {
-		for {
-			msg, err := reader.ReadMessage(context.Background())
-			if err != nil {
-				log.Fatalf("Failed to read messages from Kafka: %v", err)
-			}
-			fmt.Printf("Message received: key = %s, value = %s\n", string(msg.Key), string(msg.Value))
-
-			// TODO: Here is where you handle the Kafka message.
-			// This could involve triggering other microservice actions or updating the state of this microservice.
-		}
-	}()
-}
-
 func main() {
-	startKafkaConsumer()
+	shared.SetUpKafkaListener(
+		[]string{"stock"},
+		func(message *shared.SagaMessage) (*shared.SagaMessage, string) {
+
+			returnMessage := shared.SagaMessageConvertStartToEnd(message)
+
+			if message.Name == "START-SUBTRACT-STOCK" {
+				changes := make([]ItemChange, len(message.Order.Items))
+
+				for i, stringID := range message.Order.Items {
+					// ignore error, will not happen
+					_, itemID := shared.ConvertStringToMongoID(stringID)
+
+					changes[i] = ItemChange{
+						itemID: itemID,
+						amount: 1,
+					}
+				}
+
+				clientError, serverError := subtract(changes)
+				if clientError != nil || serverError != nil {
+					returnMessage.Name = "ABORT-CHECKOUT-SAGA"
+				}
+
+				return returnMessage, "stock-ack"
+			}
+
+			if message.Name == "START-READD-STOCK" {
+				changes := make([]ItemChange, len(message.Order.Items))
+
+				for i, stringID := range message.Order.Items {
+					// ignore error, will not happen
+					_, itemID := shared.ConvertStringToMongoID(stringID)
+
+					changes[i] = ItemChange{
+						itemID: itemID,
+						amount: 1,
+					}
+				}
+
+				clientError, serverError := add(changes)
+				if clientError != nil || serverError != nil {
+					returnMessage.Name = "ABORT-CHECKOUT-SAGA"
+				}
+
+				return returnMessage, "stock-ack"
+			}
+
+			return nil, ""
+		},
+	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -88,41 +112,30 @@ func main() {
 	log.Fatal(http.ListenAndServe(addr, router))
 }
 
-func getItem(itemID string) (error, *Item) {
-	convErr, documentID := ConvertStringToMongoID(itemID)
-	if convErr != nil {
-		return convErr, nil
-	}
-	var item Item
+func getItem(documentID *primitive.ObjectID) (error, *shared.Item) {
+	var item shared.Item
 	err := stockCollection.FindOne(context.Background(), bson.M{"_id": documentID}).Decode(&item)
 	if err != nil {
 		return err, nil
 	}
-	item.StockID = itemID
+	item.StockID = documentID.String()
 	return nil, &item
 }
 
-// func updateItemStock(item Item) bool {
-//	documentID := ConvertStringToMongoID(item.StockID)
-//	update := bson.M{
-//		"$set": bson.M{
-//			"stock": item.Stock,
-//		},
-//	}
-//	_, updateErr := stockCollection.UpdateOne(context.Background(), bson.M{"_id": documentID}, update)
-//	if updateErr != nil {
-//		log.Fatal(updateErr)
-//		return false
-//	}
-//	return true
-// }
+// Functions only used by http
 
 func findHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	itemID := vars["item_id"]
 
+	convertDocIDErr, documentID := shared.ConvertStringToMongoID(itemID)
+	if convertDocIDErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	// fmt.Printf("Find: %s\n", itemID)
-	findErr, item := getItem(itemID)
+	findErr, item := getItem(documentID)
 	if findErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -131,88 +144,6 @@ func findHandler(w http.ResponseWriter, r *http.Request) {
 	jsonEncodeErr := json.NewEncoder(w).Encode(item)
 	if jsonEncodeErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
-	}
-}
-
-func subtractHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	itemID := vars["item_id"]
-	amount := vars["amount"]
-	convertIntErr, intAmount := ConvertStringToInt(amount)
-	if convertIntErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	convertDocIDErr, documentID := ConvertStringToMongoID(itemID)
-	if convertDocIDErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
-		getItemErr, item := getItem(itemID)
-		if getItemErr != nil {
-			// fmt.Printf("Get item error")
-			w.WriteHeader(http.StatusBadRequest)
-			return nil, getItemErr
-		}
-		if item.Stock < *intAmount {
-			// fmt.Printf("Not enough stock")
-			return nil, errors.New("not enough stock to subtract")
-		}
-		update := bson.M{
-			"$inc": bson.M{
-				"stock": -*intAmount,
-			},
-		}
-		_, updateErr := stockCollection.UpdateOne(context.Background(), bson.M{"_id": documentID}, update)
-		if updateErr != nil {
-			// fmt.Printf("Update stock error: %s", updateErr)
-			return nil, updateErr
-		}
-		return nil, nil
-	}
-
-	session, startSessionErr := client.StartSession()
-	// fmt.Printf("Started session")
-	if startSessionErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	ctx := context.Background()
-	defer session.EndSession(ctx)
-	_, sessionWithTransactionErr := session.WithTransaction(ctx, callback)
-	if sessionWithTransactionErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-}
-
-func addHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	itemID := vars["item_id"]
-	amount := vars["amount"]
-	convIntErr, intAmount := ConvertStringToInt(amount)
-	if convIntErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	convStringErr, documentID := ConvertStringToMongoID(itemID)
-	if convStringErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	filter := bson.M{"_id": documentID}
-	update := bson.M{
-		"$inc": bson.M{
-			"stock": intAmount,
-		},
-	}
-	_, updateErr := stockCollection.UpdateOne(context.Background(), filter, update)
-	for updateErr != nil {
-		// fmt.Printf("Retrying adding item...")
-		_, updateErr = stockCollection.UpdateOne(context.Background(), filter, update)
 	}
 }
 
@@ -225,7 +156,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// fmt.Printf("Creating item with price %s\n", price)
-	stock := Item{
+	stock := shared.Item{
 		Stock: 0,
 		Price: priceFloat,
 	}
@@ -244,4 +175,135 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+}
+
+// Functions used by http and kafka
+
+func subtractHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	itemID := vars["item_id"]
+	amount := vars["amount"]
+	convertIntErr, intAmount := shared.ConvertStringToInt(amount)
+	if convertIntErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	convertDocIDErr, documentID := shared.ConvertStringToMongoID(itemID)
+	if convertDocIDErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	clientError, serverError := subtract([]ItemChange{{
+		itemID: documentID,
+		amount: *intAmount,
+	}})
+
+	if clientError != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if serverError != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func subtract(changes []ItemChange) (clientError error, serverError error) {
+	callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
+		for _, change := range changes {
+			getItemErr, item := getItem(change.itemID)
+			if getItemErr != nil {
+				return nil, getItemErr
+			}
+			if item.Stock < change.amount {
+				return nil, errors.New("not enough stock to subtract")
+			}
+			update := bson.M{
+				"$inc": bson.M{
+					"stock": -change.amount,
+				},
+			}
+			_, updateErr := stockCollection.UpdateOne(context.Background(), bson.M{"_id": change.itemID}, update)
+			if updateErr != nil {
+				// fmt.Printf("Update stock error: %s", updateErr)
+				return nil, updateErr
+			}
+		}
+		return nil, nil
+	}
+
+	var session mongo.Session
+	session, serverError = client.StartSession()
+	if serverError != nil {
+		return
+	}
+
+	ctx := context.Background()
+	defer session.EndSession(ctx)
+
+	_, clientError = session.WithTransaction(ctx, callback)
+
+	return
+}
+
+func addHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	itemID := vars["item_id"]
+	amount := vars["amount"]
+	convIntErr, intAmount := shared.ConvertStringToInt(amount)
+	if convIntErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	convStringErr, documentID := shared.ConvertStringToMongoID(itemID)
+	if convStringErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	clientError, serverError := add([]ItemChange{{
+		itemID: documentID,
+		amount: *intAmount,
+	}})
+
+	if clientError != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if serverError != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func add(changes []ItemChange) (clientError error, serverError error) {
+	callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
+		for _, change := range changes {
+			filter := bson.M{"_id": change.itemID}
+			update := bson.M{
+				"$inc": bson.M{
+					"stock": change.amount,
+				},
+			}
+			_, updateError := stockCollection.UpdateOne(context.Background(), filter, update)
+			if updateError != nil {
+				return nil, updateError
+			}
+		}
+		return nil, nil
+	}
+
+	var session mongo.Session
+	session, serverError = client.StartSession()
+	if serverError != nil {
+		return
+	}
+
+	ctx := context.Background()
+	defer session.EndSession(ctx)
+
+	_, clientError = session.WithTransaction(ctx, callback)
+
+	return
 }

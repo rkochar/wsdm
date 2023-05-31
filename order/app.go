@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	kafka "github.com/segmentio/kafka-go"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"WDM-G1/shared"
+	kafka "github.com/segmentio/kafka-go"
 
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
@@ -17,20 +19,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
-
-type Order struct {
-	OrderID   string   `json:"order_id"`
-	Paid      bool     `json:"paid"`
-	Items     []string `json:"items"`
-	UserID    string   `json:"user_id"`
-	TotalCost float64  `json:"total_cost"`
-}
-
-type Item struct {
-	StockID string  `json:"item_id"`
-	Stock   int64   `json:"stock"`
-	Price   float64 `json:"price"`
-}
 
 var client *mongo.Client
 var ordersCollection *mongo.Collection
@@ -58,6 +46,7 @@ func main() {
 	router.HandleFunc("/orders/checkout/{order_id}", checkoutHandler)
 
 	router.HandleFunc("/orders/send/{message}", sendKafkaMessageHandler)
+	// router.HandleFunc("/orders/kafka/checkout", checkoutKafkaHandler)
 
 	port := os.Getenv("PORT")
 	fmt.Printf("Current port is: %s\n", port)
@@ -71,14 +60,14 @@ func main() {
 	log.Fatal(http.ListenAndServe(addr, router))
 }
 
-func getOrder(orderID string) (error, *Order) {
-	convertDocIDErr, documentID := ConvertStringToMongoID(orderID)
+func getOrder(orderID string) (error, *shared.Order) {
+	convertDocIDErr, documentID := shared.ConvertStringToMongoID(orderID)
 	if convertDocIDErr != nil {
 		return convertDocIDErr, nil
 	}
 
 	filter := bson.M{"_id": documentID}
-	var order Order
+	var order shared.Order
 	findDocErr := ordersCollection.FindOne(context.Background(), filter).Decode(&order)
 	if findDocErr != nil {
 		return findDocErr, nil
@@ -98,9 +87,9 @@ func createOrderHandler(w http.ResponseWriter, r *http.Request) {
 	*/
 	vars := mux.Vars(r)
 	userID := vars["user_id"]
-	//fmt.Printf("Creating order for user %s\n", userID)
+	// fmt.Printf("Creating order for user %s\n", userID)
 
-	order := Order{
+	order := shared.Order{
 		Paid:      false,
 		Items:     []string{},
 		UserID:    userID,
@@ -112,7 +101,7 @@ func createOrderHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	orderID := insertResult.InsertedID.(primitive.ObjectID).Hex()
-	//log.Printf("Inserted document with ID: %v\n", insertResult.InsertedID)
+	// log.Printf("Inserted document with ID: %v\n", insertResult.InsertedID)
 	order.OrderID = orderID
 
 	w.Header().Set("Content-Type", "application/json")
@@ -130,7 +119,7 @@ func removeOrderHandler(w http.ResponseWriter, r *http.Request) {
 	*/
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
-	convertDocIDErr, documentID := ConvertStringToMongoID(orderID)
+	convertDocIDErr, documentID := shared.ConvertStringToMongoID(orderID)
 	if convertDocIDErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -142,8 +131,8 @@ func removeOrderHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	//log.Printf("Deleted %d document(s)\n", result.DeletedCount)
-	//fmt.Printf("Deleted order with ID: %s\n", orderID)
+	// log.Printf("Deleted %d document(s)\n", result.DeletedCount)
+	// fmt.Printf("Deleted order with ID: %s\n", orderID)
 }
 
 // TODO: set to GET method
@@ -181,18 +170,18 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer getStockResponse.Body.Close()
 
-	var item Item
+	var item shared.Item
 	jsonDecodeErr := json.NewDecoder(getStockResponse.Body).Decode(&item)
 	if jsonDecodeErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	//if item.Stock == 0 || item.Price == 0.0 {
+	// if item.Stock == 0 || item.Price == 0.0 {
 	//	w.WriteHeader(http.StatusBadRequest)
 	//	return
-	//}
+	// }
 
-	convertDocIDErr, documentID := ConvertStringToMongoID(orderID)
+	convertDocIDErr, documentID := shared.ConvertStringToMongoID(orderID)
 	if convertDocIDErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -227,14 +216,14 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer getStockResponse.Body.Close()
 
-	var item Item
+	var item shared.Item
 	jsonDecodeErr := json.NewDecoder(getStockResponse.Body).Decode(&item)
 	if jsonDecodeErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	convertDocIDErr, documentID := ConvertStringToMongoID(orderID)
+	convertDocIDErr, documentID := shared.ConvertStringToMongoID(orderID)
 	if convertDocIDErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -259,7 +248,7 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 // PAYMENT_MAKE_USERID_ORDERID_TOTALCOST
 // PAYMENT_CANCEL_USERID_ORDERID_TOTALCOST
 
-func makePayment(order Order) bool {
+func makePayment(order shared.Order) bool {
 	URL := fmt.Sprintf("http://localhost:8081/payment/pay/%s/%s/%f", order.UserID, order.OrderID, order.TotalCost)
 	fmt.Printf("Making payment via URL: %s\n", URL)
 	resp, err := http.Post(URL, "application/json", strings.NewReader(``))
@@ -291,18 +280,10 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Step 1: Make the payment
-	// Compensation: cancel payment
-	paymentSuccess := makePayment(*order)
-	if !paymentSuccess {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	// Step 2: Subtract the stock
+	// Step 1: Subtract the stock
 	// Compensation: re-add stock
 	for _, item := range order.Items {
-		//fmt.Printf("Item at index %d: %+v\n", i, item)
+		// fmt.Printf("Item at index %d: %+v\n", i, item)
 		subtractStockSuccess := subtractStock(item, 1)
 		if !subtractStockSuccess {
 			w.WriteHeader(http.StatusBadRequest)
@@ -310,9 +291,17 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Step 2: Make the payment
+	// Compensation: cancel payment
+	paymentSuccess := makePayment(*order)
+	if !paymentSuccess {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	// Step 3: Update the order status
 	// Compensation: set order to unpaid
-	convertDocIDErr, orderDocumentID := ConvertStringToMongoID(orderID)
+	convertDocIDErr, orderDocumentID := shared.ConvertStringToMongoID(orderID)
 	if convertDocIDErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -326,7 +315,7 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	_, updateOrderErr := ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
 	if updateOrderErr != nil {
-		//fmt.Printf("Error during updating of order status: %s", updateOrderErr)
+		// fmt.Printf("Error during updating of order status: %s", updateOrderErr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -360,3 +349,25 @@ func sendKafkaMessageHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatal("failed to close writer:", err)
 	}
 }
+
+// /orders/checkout/kafka
+// func checkoutKafkaHandler(w http.ResponseWriter, r *http.Request) {
+// 	fmt.Fprintf(w, "Hi there Kafka!")
+// 	fmt.Printf("Doing Kafka checkout test")
+//
+// 	// to produce messages
+// 	topic := "order-ack"
+// 	partition := 0
+//
+// 	sagaID := uuid.New()
+//
+// 	testItem := Item{
+// 		StockID: "a",
+// 		Stock:   42,
+// 		Price:   69,
+// 	}
+//
+// 	if err := conn.Close(); err != nil {
+// 		log.Fatal("failed to close writer:", err)
+// 	}
+// }

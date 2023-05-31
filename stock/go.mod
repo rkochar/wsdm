@@ -2,8 +2,12 @@ module github.com/gijspaardekooper/WDM-G1
 
 go 1.20
 
+replace WDM-G1/shared => ../shared
+
 require (
+	WDM-G1/shared v0.0.0-00010101000000-000000000000
 	github.com/gorilla/mux v1.8.0
+	github.com/segmentio/kafka-go v0.4.40
 	go.mongodb.org/mongo-driver v1.11.6
 )
 
@@ -13,7 +17,6 @@ require (
 	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe // indirect
 	github.com/pierrec/lz4/v4 v4.1.15 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/segmentio/kafka-go v0.4.40 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.2 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect

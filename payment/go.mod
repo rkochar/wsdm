@@ -2,7 +2,10 @@ module github.com/gijspaardekooper/WDM-G1
 
 go 1.20
 
+replace WDM-G1/shared => ../shared
+
 require (
+	WDM-G1/shared v0.0.0-00010101000000-000000000000
 	github.com/gorilla/mux v1.8.0
 	go.mongodb.org/mongo-driver v1.11.6
 )
