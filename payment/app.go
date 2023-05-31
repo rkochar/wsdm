@@ -31,8 +31,6 @@ var userCollection *mongo.Collection
 var paymentCollection *mongo.Collection
 
 func main() {
-	fmt.Printf("Starting payment...\n")
-
 	go shared.SetUpKafkaListener(
 		[]string{"payment"},
 		func(message *shared.SagaMessage) (*shared.SagaMessage, string) {
@@ -70,8 +68,6 @@ func main() {
 			return nil, ""
 		},
 	)
-
-	fmt.Printf("Hello\n")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

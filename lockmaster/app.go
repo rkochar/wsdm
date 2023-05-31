@@ -2,6 +2,7 @@ package main
 
 import (
 	"WDM-G1/shared"
+	"fmt"
 )
 
 type Action struct {
@@ -51,6 +52,7 @@ func main() {
 				nextAction, messageResponseAvailable = failActionMap[previousMessage.Name]
 			} else {
 				nextAction, messageResponseAvailable = successfulActionMap[message.Name]
+				fmt.Printf("Next action topic: %s next message: %s", nextAction.topic, nextAction.nextMessage)
 			}
 
 			if !messageResponseAvailable {

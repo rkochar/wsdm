@@ -21,7 +21,7 @@ var client *mongo.Client
 var ordersCollection *mongo.Collection
 
 func main() {
-	shared.SetUpKafkaListener(
+	go shared.SetUpKafkaListener(
 		[]string{"order"},
 		func(message *shared.SagaMessage) (*shared.SagaMessage, string) {
 
@@ -83,7 +83,7 @@ func getOrder(orderID *primitive.ObjectID) (error, *shared.Order) {
 	if findDocErr != nil {
 		return findDocErr, nil
 	}
-	order.OrderID = orderID.String()
+	//order.OrderID = orderID.String()
 	return nil, &order
 }
 
@@ -150,6 +150,7 @@ func findOrderHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	findOrderErr, order := getOrder(documentID)
+	order.OrderID = orderID
 	if findOrderErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -167,15 +168,18 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 	orderID := vars["order_id"]
 	itemID := vars["item_id"]
 
-	convertItemIDErr, mongoItemID := shared.ConvertStringToMongoID(itemID)
-	if convertItemIDErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
+	//fmt.Printf("Adding item %s to order %s", itemID, orderID)
+	//convertItemIDErr, mongoItemID := shared.ConvertStringToMongoID(itemID)
+	//if convertItemIDErr != nil {
+	//	w.WriteHeader(http.StatusBadRequest)
+	//	return
+	//}
 
 	// TODO: use kafka
 
-	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://localhost:8082/stock/find/%s", mongoItemID))
+	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://localhost:8082/stock/find/%s", itemID))
+	//fmt.Printf("response: %s", getStockResponse.StatusCode)
+	//fmt.Printf("get stock err: %s", getStockErr)
 	if getStockErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -266,29 +270,41 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	convertOrderIDErr, mongoOrderID := shared.ConvertStringToMongoID(orderID)
 	if convertOrderIDErr != nil {
+		fmt.Println("Convert String to Mongo ID error")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	getOrderErr, order := getOrder(mongoOrderID)
+	order.OrderID = orderID
+	fmt.Println("Order ID", orderID, order.OrderID)
 	if getOrderErr != nil {
+		fmt.Println("Get order error")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	sender := shared.CreateTopicSender("order-ack")
+	defer sender.Close()
+	fmt.Println("Order ID V2", orderID, order.OrderID)
 	message := shared.SagaMessage{
 		Name:   "START-CHECKOUT-SAGA",
 		SagaID: -1,
 		Order:  *order,
 	}
+	fmt.Println("Message: ", message)
+	message.Order.OrderID = orderID
+	fmt.Println("Message v2: ", message)
+	fmt.Println("Message v3: ", &message)
 
 	sendErr := shared.SendSagaMessage(&message, sender)
 	if sendErr != nil {
+		fmt.Println("Send Kafka SAGA message error")
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
 	// TODO: wait for response and return status
+	fmt.Println("TODO TODO TODO")
 }
 
 // Functions used only by kafka

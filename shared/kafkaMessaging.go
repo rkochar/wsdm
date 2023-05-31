@@ -29,8 +29,8 @@ func SetUpKafkaListener(services []string, action func(*SagaMessage) (*SagaMessa
 		ReadLagInterval: -1,
 	}
 
-	senderMap := make(map[string]*kafka.Conn)
 	readerMap := make(map[string]*kafka.Reader)
+	senderMap := make(map[string]*kafka.Conn)
 
 	for _, serviceName := range services {
 		topicSyn := serviceName + "-syn"
@@ -72,9 +72,11 @@ func SetUpKafkaListener(services []string, action func(*SagaMessage) (*SagaMessa
 					fmt.Printf("Received message for topic %s: Partition=%d, Offset=%d, Key=%s, Value=%s\n",
 						topic, m.Partition, m.Offset, string(m.Key), string(m.Value))
 
+					fmt.Println("m.Value: %s", string(m.Value))
 					parseErr, message := ParseSagaMessage(string(m.Value))
 					if parseErr != nil {
-						log.Printf("Error parsing message: %s\n", parseErr)
+						fmt.Printf("Error parsing message: %s\n", parseErr)
+						//log.Printf("Error parsing message: %s\n", parseErr)
 						continue
 					}
 
@@ -113,6 +115,7 @@ func CreateTopicReader(topicName string, config kafka.ReaderConfig) *kafka.Reade
 }
 
 func SendSagaMessage(message *SagaMessage, conn *kafka.Conn) error {
+	fmt.Println("message.Order:", message.Order)
 	jsonByteArray, marshalError := json.Marshal(message.Order)
 	if marshalError != nil {
 		return marshalError

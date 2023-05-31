@@ -29,7 +29,7 @@ var client *mongo.Client
 var stockCollection *mongo.Collection
 
 func main() {
-	shared.SetUpKafkaListener(
+	go shared.SetUpKafkaListener(
 		[]string{"stock"},
 		func(message *shared.SagaMessage) (*shared.SagaMessage, string) {
 
@@ -129,22 +129,26 @@ func getItem(documentID *primitive.ObjectID) (error, *shared.Item) {
 func findHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	itemID := vars["item_id"]
+	fmt.Printf("item ID: %s", itemID)
 
 	convertDocIDErr, documentID := shared.ConvertStringToMongoID(itemID)
 	if convertDocIDErr != nil {
+		fmt.Println("CONVERT DOC ERROR")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	// fmt.Printf("Find: %s\n", itemID)
+	fmt.Printf("Find: %s\n", itemID)
 	findErr, item := getItem(documentID)
 	if findErr != nil {
+		fmt.Println("GET ITEM ERROR")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	jsonEncodeErr := json.NewEncoder(w).Encode(item)
 	if jsonEncodeErr != nil {
+		fmt.Println("JSON ENCODE ERROR")
 		w.WriteHeader(http.StatusBadRequest)
 	}
 }

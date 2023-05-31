@@ -141,7 +141,7 @@ func (dbConn *MySQLConnection) createTables() error {
 		return createMessagesErr
 	}
 
-	fmt.Printf("Successfully created all tables!")
+	fmt.Printf("Successfully created all tables!\n")
 	return nil
 }
 
@@ -165,14 +165,17 @@ func (dbConn *MySQLConnection) createSaga() (error, *int64) {
 }
 
 func (dbConn *MySQLConnection) insertSagaLog(sagaLog *SagaLog) error {
+	fmt.Println("Inserting SAGA log...")
 	query, prepareQueryErr := dbConn.db.Prepare("INSERT INTO messages (saga_id, message_type, message_event, saga_contents) VALUES (?, ?, ?, ?)")
 	if prepareQueryErr != nil {
+		fmt.Println("Prepare Query error!")
 		return prepareQueryErr
 	}
 	defer query.Close()
 
 	_, execQueryErr := query.Exec(sagaLog.SagaID, sagaLog.MessageType, sagaLog.MessageEvent, sagaLog.SagaContents)
 	if execQueryErr != nil {
+		fmt.Println("Execute query error!")
 		return execQueryErr
 	}
 	return nil
