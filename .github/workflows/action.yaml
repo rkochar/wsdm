@@ -69,7 +69,9 @@ jobs:
         id: stock-image
         uses: docker/build-push-action@v4.0.0
         with:
-          context: ./stock
+          context: ./
+          build-args:
+            SERVICE: stock
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/stock:latest
@@ -95,7 +97,7 @@ jobs:
         with:
           context: ./
           build-args:
-            SERVICE: order
+            SERVICE: payment
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/payment:latest
@@ -106,7 +108,9 @@ jobs:
         id: lockmaster-image
         uses: docker/build-push-action@v4.0.0
         with:
-          context: ./lockmaster
+          context: ./
+          build-args:
+            SERVICE: lockmaster
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/lockmaster:latest
