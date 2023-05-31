@@ -80,7 +80,9 @@ jobs:
         id: order-image
         uses: docker/build-push-action@v4.0.0
         with:
-          context: ./order
+          context: ./
+          build-args:
+            SERVICE: order
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/order:latest
@@ -91,7 +93,9 @@ jobs:
         id: payment-image
         uses: docker/build-push-action@v4.0.0
         with:
-          context: ./payment
+          context: ./
+          build-args:
+            SERVICE: order
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/payment:latest

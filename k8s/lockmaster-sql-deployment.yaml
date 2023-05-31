@@ -28,7 +28,8 @@ spec:
     spec:
       containers:
       - name: lockmaster
-        image: ghcr.io/gijspaardekooper/wdm-g1/lockmaster:latest
+        image: lockmaster:latest
+        imagePullPolicy: Never
         resources:
           limits:
             memory: "1Gi"
