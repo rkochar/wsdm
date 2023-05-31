@@ -1,8 +1,8 @@
 #!/bin/bash
 
 echo "Deleting mongo"
-./mongo/delete-mongo-stateful-replicasets.sh
+./k8s/mongodb/delete-mongodb.sh
 
-./k8s/delete-microservice.sh
+./k8s/microservices/delete-microservice.sh
 
-./kafka/delete-kafka.sh
+./k8s/kafka/delete-kafka.sh
