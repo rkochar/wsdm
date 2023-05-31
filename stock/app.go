@@ -101,7 +101,7 @@ func main() {
 	router.HandleFunc("/stock/item/create/{price}", createHandler)
 
 	port := os.Getenv("PORT")
-	fmt.Printf("Current port is: %s\n", port)
+	fmt.Printf("Current port is : %s\n", port)
 	if port == "" {
 		port = "8082"
 	}

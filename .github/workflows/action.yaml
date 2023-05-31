@@ -52,16 +52,12 @@ jobs:
         with:
           filters: |
             stock:
-              - 'stock/Dockerfile'
               - 'stock/*.go'
             order:
-              - 'order/Dockerfile'
               - 'order/*.go'
             payment:
-              - 'payment/Dockerfile'
               - 'payment/*.go'
             lockmaster:
-              - 'lockmaster/Dockerfile'
               - 'lockmaster/*.go'
 
       - name: stock-release-image

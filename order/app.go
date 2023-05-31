@@ -49,7 +49,7 @@ func main() {
 	// router.HandleFunc("/orders/kafka/checkout", checkoutKafkaHandler)
 
 	port := os.Getenv("PORT")
-	fmt.Printf("Current port is: %s\n", port)
+	fmt.Printf("Current port is : %s\n", port)
 	if port == "" {
 		port = "8080"
 	}
