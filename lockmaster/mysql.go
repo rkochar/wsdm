@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"time"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 type Saga struct {
@@ -42,11 +44,15 @@ func (dbConn *MySQLConnection) init() {
 		log.Fatal("Failed to ping the database:", err)
 	}
 	fmt.Println("Connected to the MySQL database!")
+	createTablesErr := dbConn.createTables()
+	if createTablesErr != nil {
+		log.Fatal("Failed to create the MySQL tables:\n", createTablesErr)
+	}
 }
 
 func (dbConn *MySQLConnection) connectDB() error {
 	dbUser := "root"
-	dbPass := "new_password"
+	dbPass := "password"
 	dbName := "saga_log"
 	dbHost := "localhost"
 	dbPort := 3306
@@ -57,6 +63,85 @@ func (dbConn *MySQLConnection) connectDB() error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (dbConn *MySQLConnection) createTables() error {
+	fmt.Println("Creating the MySQL tables...")
+
+	createMsgTypesTable := `
+	CREATE TABLE IF NOT EXISTS message_types (
+				ID INT PRIMARY KEY,
+				type varchar(10)
+		) ENGINE=InnoDB;
+	`
+	_, createMsgTypeErr := dbConn.db.Exec(createMsgTypesTable)
+	if createMsgTypeErr != nil {
+		return createMsgTypeErr
+	}
+
+	insertMsgTypes := `INSERT IGNORE INTO message_types (ID, type)
+	VALUES 
+	  (1, 'START'),
+	  (2, 'END'),
+	  (3, 'ABORT');
+    `
+	_, insertMsgTypeErr := dbConn.db.Exec(insertMsgTypes)
+	if insertMsgTypeErr != nil {
+		return insertMsgTypeErr
+	}
+
+	createMsgEvents := `CREATE TABLE IF NOT EXISTS message_events (
+			ID INT PRIMARY KEY,
+			event varchar(32)
+	) ENGINE=InnoDB;
+	`
+	_, createMsgErr := dbConn.db.Exec(createMsgEvents)
+	if createMsgErr != nil {
+		return createMsgErr
+	}
+
+	insertMsgEvents := `INSERT IGNORE INTO message_events (ID, event)
+	VALUES 
+	  (1, 'MAKE-PAYMENT'),
+	  (2, 'CANCEL-PAYMENT'),
+	  (3, 'CHECKOUT-SAGA'),
+	  (4, 'CANCEL-SAGA'),
+	  (5, 'SUBTRACT-STOCK'),
+	  (6, 'READD-STOCK'),
+	  (7, 'UPDATE-ORDER');
+    `
+	_, insertMsgErr := dbConn.db.Exec(insertMsgEvents)
+	if insertMsgErr != nil {
+		return insertMsgErr
+	}
+
+	createSagas := `CREATE TABLE IF NOT EXISTS sagas (
+		ID INT AUTO_INCREMENT PRIMARY KEY,
+		timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	) ENGINE=InnoDB;`
+	_, createSagasErr := dbConn.db.Exec(createSagas)
+	if createSagasErr != nil {
+		return createSagasErr
+	}
+
+	createMessages := `CREATE TABLE IF NOT EXISTS messages (
+			ID INT AUTO_INCREMENT PRIMARY KEY,
+			saga_id INT,
+			message_type INT,
+			message_event INT,
+			saga_contents TEXT,
+			timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (saga_id) REFERENCES sagas(ID),
+			FOREIGN KEY (message_type) REFERENCES message_types(ID),
+			FOREIGN KEY (message_event) REFERENCES message_events(ID)
+	) ENGINE=InnoDB;`
+	_, createMessagesErr := dbConn.db.Exec(createMessages)
+	if createMessagesErr != nil {
+		return createMessagesErr
+	}
+
+	fmt.Printf("Successfully created all tables!")
 	return nil
 }
 
@@ -80,13 +165,13 @@ func (dbConn *MySQLConnection) createSaga() (error, *int64) {
 }
 
 func (dbConn *MySQLConnection) insertSagaLog(sagaLog *SagaLog) error {
-	query, prepareQueryErr := dbConn.db.Prepare("INSERT INTO saga_log (saga_id, saga_contents) VALUES (?, ?)")
+	query, prepareQueryErr := dbConn.db.Prepare("INSERT INTO messages (saga_id, message_type, message_event, saga_contents) VALUES (?, ?, ?, ?)")
 	if prepareQueryErr != nil {
 		return prepareQueryErr
 	}
 	defer query.Close()
 
-	_, execQueryErr := query.Exec(sagaLog.SagaID, sagaLog.SagaContents)
+	_, execQueryErr := query.Exec(sagaLog.SagaID, sagaLog.MessageType, sagaLog.MessageEvent, sagaLog.SagaContents)
 	if execQueryErr != nil {
 		return execQueryErr
 	}
@@ -136,7 +221,7 @@ func (dbConn *MySQLConnection) printAllSAGAs() error {
 }
 
 func (dbConn *MySQLConnection) printAllSAGALogs() error {
-	rows, err := dbConn.db.Query("SELECT * FROM saga_log")
+	rows, err := dbConn.db.Query("SELECT * FROM messages")
 	if err != nil {
 		return err
 	}
