@@ -70,8 +70,8 @@ jobs:
         uses: docker/build-push-action@v4.0.0
         with:
           context: ./
-          build-args:
-            SERVICE: stock
+          build-args: |
+            SERVICE=stock
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/stock:latest
@@ -83,8 +83,8 @@ jobs:
         uses: docker/build-push-action@v4.0.0
         with:
           context: ./
-          build-args:
-            SERVICE: order
+          build-args: |
+            SERVICE=order
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/order:latest
@@ -96,8 +96,8 @@ jobs:
         uses: docker/build-push-action@v4.0.0
         with:
           context: ./
-          build-args:
-            SERVICE: payment
+          build-args: |
+            SERVICE=payment
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/payment:latest
@@ -109,8 +109,8 @@ jobs:
         uses: docker/build-push-action@v4.0.0
         with:
           context: ./
-          build-args:
-            SERVICE: lockmaster
+          build-args: |
+            SERVICE=lockmaster
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/lockmaster:latest
