@@ -44,7 +44,7 @@ func main() {
 				// TODO: get last successful message name from log
 				// nextAction = failActionMap[]
 
-				log.Printf("Abort not supported yet")
+				log.Printf("Abort not supported yet ")
 				return nil, ""
 			} else {
 				nextAction, knownMessage = successfulActionMap[message.Name]

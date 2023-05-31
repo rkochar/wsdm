@@ -54,7 +54,7 @@ func main() {
 	router.HandleFunc("/payment/find_user/{user_id}", findUserHandler)
 
 	port := os.Getenv("PORT")
-	fmt.Printf("Current port is: %s\n", port)
+	fmt.Printf("Current port is : %s\n", port)
 	if port == "" {
 		port = "8081"
 	}
