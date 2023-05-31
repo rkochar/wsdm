@@ -85,7 +85,7 @@ func main() {
 	defer cancel()
 
 	var err error
-	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://stockdb-svc-0:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}

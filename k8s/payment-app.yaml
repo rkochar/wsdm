@@ -29,8 +29,8 @@ spec:
     spec:
       containers:
         - name: payment
-          image: ghcr.io/gijspaardekooper/wdm-g1/payment:v0.1.7
-          imagePullPolicy: IfNotPresent
+          image: user:latest
+          imagePullPolicy: Never
           resources:
             limits:
               memory: "1Gi"
