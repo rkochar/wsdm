@@ -1,8 +1,6 @@
 package main
 
 import (
-	"log"
-
 	"WDM-G1/shared"
 )
 
@@ -33,14 +31,11 @@ var failActionMap = map[string]Action{
 	"START-UPDATE-ORDER": {"START-CANCEL-PAYMENT", "payment-syn"},
 }
 
-var db MySQLConnection
+var dbConn MySQLConnection
 
 func main() {
-	db = MySQLConnection{}
-	defer db.db.Close()
-	db.init()
-
-	db.printAllSAGAs()
+	dbConn = makeMySQLConnection()
+	defer dbConn.db.Close()
 
 	shared.SetUpKafkaListener(
 		[]string{"order", "stock", "payment"},
@@ -50,11 +45,10 @@ func main() {
 			var messageResponseAvailable bool
 
 			if message.Name == "ABORT-CHECKOUT-SAGA" {
-				// TODO: get last successful message name from log
-				// nextAction = failActionMap[]
+				_, previousLog := dbConn.getLatestSagaLog(message.SagaID)
+				_, previousMessage := sagaLogToSagaMessage(previousLog)
 
-				log.Printf("Abort not supported yet")
-				return nil, ""
+				nextAction, messageResponseAvailable = failActionMap[previousMessage.Name]
 			} else {
 				nextAction, messageResponseAvailable = successfulActionMap[message.Name]
 			}
@@ -63,11 +57,13 @@ func main() {
 				return nil, ""
 			}
 
-			// TODO: write incoming message to database
-
-			if message.SagaID == "" {
-				// TODO: add new id from database for next message
+			if message.SagaID == -1 {
+				_, sagaID := dbConn.createSaga()
+				message.SagaID = *sagaID
 			}
+
+			_, sagaLogIn := sagaMessageToSagaLog(message)
+			dbConn.insertSagaLog(sagaLogIn)
 
 			outMessage := shared.SagaMessage{
 				Name:   nextAction.nextMessage,
@@ -75,7 +71,8 @@ func main() {
 				Order:  message.Order,
 			}
 
-			// TODO: write outgoing message to database
+			_, sagaLogOut := sagaMessageToSagaLog(&outMessage)
+			dbConn.insertSagaLog(sagaLogOut)
 
 			return &outMessage, nextAction.topic
 		},

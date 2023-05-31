@@ -279,7 +279,7 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	sender := shared.CreateTopicSender("order-ack")
 	message := shared.SagaMessage{
 		Name:   "START-CHECKOUT-SAGA",
-		SagaID: "",
+		SagaID: -1,
 		Order:  *order,
 	}
 

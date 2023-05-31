@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 	"time"
-
-	_ "github.com/go-sql-driver/mysql"
 )
 
 type Saga struct {
@@ -25,6 +23,12 @@ type SagaLog struct {
 
 type MySQLConnection struct {
 	db *sql.DB
+}
+
+func makeMySQLConnection() MySQLConnection {
+	dbConn = MySQLConnection{}
+	dbConn.init()
+	return dbConn
 }
 
 func (dbConn *MySQLConnection) init() {
@@ -56,26 +60,26 @@ func (dbConn *MySQLConnection) connectDB() error {
 	return nil
 }
 
-func (dbConn *MySQLConnection) createSaga() (*int64, error) {
+func (dbConn *MySQLConnection) createSaga() (error, *int64) {
 	query, prepareQueryErr := dbConn.db.Prepare("INSERT INTO sagas (ID, timestamp) VALUES (DEFAULT, DEFAULT)")
 	if prepareQueryErr != nil {
-		return nil, prepareQueryErr
+		return prepareQueryErr, nil
 	}
 	defer query.Close()
 
 	sagaResult, execQueryErr := query.Exec()
 	if execQueryErr != nil {
-		return nil, execQueryErr
+		return execQueryErr, nil
 	}
 	insertedID, insertedErr := sagaResult.LastInsertId()
 	if insertedErr != nil {
-		return nil, insertedErr
+		return insertedErr, nil
 	}
 	fmt.Printf("SAGA: %d\n", insertedID)
-	return &insertedID, nil
+	return nil, &insertedID
 }
 
-func (dbConn *MySQLConnection) insertSagaLog(sagaLog SagaLog) error {
+func (dbConn *MySQLConnection) insertSagaLog(sagaLog *SagaLog) error {
 	query, prepareQueryErr := dbConn.db.Prepare("INSERT INTO saga_log (saga_id, saga_contents) VALUES (?, ?)")
 	if prepareQueryErr != nil {
 		return prepareQueryErr
@@ -89,25 +93,25 @@ func (dbConn *MySQLConnection) insertSagaLog(sagaLog SagaLog) error {
 	return nil
 }
 
-func (dbConn *MySQLConnection) getLatestSagaLog(sagaID int64) (*SagaLog, error) {
+func (dbConn *MySQLConnection) getLatestSagaLog(sagaID int64) (error, *SagaLog) {
 	qString := "SELECT ID, saga_id, saga_contents, timestamp FROM sagas WHERE saga_id = ? ORDER BY timestamp DESC LIMIT 1"
 	query, prepareQueryErr := dbConn.db.Prepare(qString)
 	if prepareQueryErr != nil {
-		return nil, prepareQueryErr
+		return prepareQueryErr, nil
 	}
 	defer query.Close()
 
 	var sagaLog SagaLog
 	queryErr := query.QueryRow(sagaID).Scan(&sagaLog.ID, &sagaLog.SagaID, &sagaLog.SagaContents, &sagaLog.Timestamp)
 	if queryErr != nil {
-		return nil, queryErr
+		return queryErr, nil
 	}
 
 	fmt.Println("Retrieved latest document:")
 	fmt.Println("Saga ID:", sagaLog.SagaID)
 	fmt.Println("Saga Contents:", sagaLog.SagaContents)
 	fmt.Println("Timestamp:", sagaLog.Timestamp)
-	return &sagaLog, nil
+	return nil, &sagaLog
 }
 
 // DEBUG METHODS

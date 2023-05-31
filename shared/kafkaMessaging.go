@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"time"
 
@@ -119,7 +120,7 @@ func SendSagaMessage(message *SagaMessage, conn *kafka.Conn) error {
 
 	messageBuffer := bytes.Buffer{}
 	messageBuffer.WriteString("START_CHECKOUT-SAGA_")
-	messageBuffer.WriteString(message.SagaID)
+	messageBuffer.WriteString(strconv.FormatInt(message.SagaID, 10))
 	messageBuffer.WriteString("_")
 	messageBuffer.Write(jsonByteArray)
 
