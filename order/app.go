@@ -22,7 +22,7 @@ var ordersCollection *mongo.Collection
 
 func main() {
 	go shared.SetUpKafkaListener(
-		[]string{"order"},
+		[]string{"order"}, false,
 		func(message *shared.SagaMessage) (*shared.SagaMessage, string) {
 
 			returnMessage := shared.SagaMessageConvertStartToEnd(message)
@@ -83,7 +83,7 @@ func getOrder(orderID *primitive.ObjectID) (error, *shared.Order) {
 	if findDocErr != nil {
 		return findDocErr, nil
 	}
-	//order.OrderID = orderID.String()
+	// order.OrderID = orderID.String()
 	return nil, &order
 }
 
@@ -168,18 +168,18 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 	orderID := vars["order_id"]
 	itemID := vars["item_id"]
 
-	//fmt.Printf("Adding item %s to order %s", itemID, orderID)
-	//convertItemIDErr, mongoItemID := shared.ConvertStringToMongoID(itemID)
-	//if convertItemIDErr != nil {
+	// fmt.Printf("Adding item %s to order %s", itemID, orderID)
+	// convertItemIDErr, mongoItemID := shared.ConvertStringToMongoID(itemID)
+	// if convertItemIDErr != nil {
 	//	w.WriteHeader(http.StatusBadRequest)
 	//	return
-	//}
+	// }
 
 	// TODO: use kafka
 
 	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://localhost:8082/stock/find/%s", itemID))
-	//fmt.Printf("response: %s", getStockResponse.StatusCode)
-	//fmt.Printf("get stock err: %s", getStockErr)
+	// fmt.Printf("response: %s", getStockResponse.StatusCode)
+	// fmt.Printf("get stock err: %s", getStockErr)
 	if getStockErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return

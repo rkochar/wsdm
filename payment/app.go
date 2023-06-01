@@ -32,7 +32,7 @@ var paymentCollection *mongo.Collection
 
 func main() {
 	go shared.SetUpKafkaListener(
-		[]string{"payment"},
+		[]string{"payment"}, false,
 		func(message *shared.SagaMessage) (*shared.SagaMessage, string) {
 
 			returnMessage := shared.SagaMessageConvertStartToEnd(message)

@@ -15,7 +15,7 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-func SetUpKafkaListener(services []string, action func(*SagaMessage) (*SagaMessage, string)) {
+func SetUpKafkaListener(services []string, inLockMaster bool, action func(*SagaMessage) (*SagaMessage, string)) {
 	// Set up Kafka connection configuration
 	brokers := []string{"localhost:9092"}
 
@@ -32,14 +32,25 @@ func SetUpKafkaListener(services []string, action func(*SagaMessage) (*SagaMessa
 	readerMap := make(map[string]*kafka.Reader)
 	senderMap := make(map[string]*kafka.Conn)
 
-	for _, serviceName := range services {
-		topicSyn := serviceName + "-syn"
-		senderMap[topicSyn] = CreateTopicSender(topicSyn)
-		defer senderMap[topicSyn].Close()
+	var sendName string
+	var receiveName string
 
-		topicAck := serviceName + "-ack"
-		readerMap[topicAck] = CreateTopicReader(topicAck, config)
-		defer readerMap[topicAck].Close()
+	if inLockMaster {
+		sendName = "-syn"
+		receiveName = "-ack"
+	} else {
+		sendName = "-ack"
+		receiveName = "-syn"
+	}
+
+	for _, serviceName := range services {
+		sendTopic := serviceName + sendName
+		senderMap[sendTopic] = CreateTopicSender(sendTopic)
+		defer senderMap[sendTopic].Close()
+
+		receiveTopic := serviceName + receiveName
+		readerMap[receiveTopic] = CreateTopicReader(receiveTopic, config)
+		defer readerMap[receiveTopic].Close()
 	}
 
 	// Create a context to control the consumer
@@ -76,7 +87,7 @@ func SetUpKafkaListener(services []string, action func(*SagaMessage) (*SagaMessa
 					parseErr, message := ParseSagaMessage(string(m.Value))
 					if parseErr != nil {
 						fmt.Printf("Error parsing message: %s\n", parseErr)
-						//log.Printf("Error parsing message: %s\n", parseErr)
+						// log.Printf("Error parsing message: %s\n", parseErr)
 						continue
 					}
 

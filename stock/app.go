@@ -30,7 +30,7 @@ var stockCollection *mongo.Collection
 
 func main() {
 	go shared.SetUpKafkaListener(
-		[]string{"stock"},
+		[]string{"stock"}, false,
 		func(message *shared.SagaMessage) (*shared.SagaMessage, string) {
 
 			returnMessage := shared.SagaMessageConvertStartToEnd(message)

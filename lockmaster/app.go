@@ -1,8 +1,9 @@
 package main
 
 import (
-	"WDM-G1/shared"
 	"fmt"
+
+	"WDM-G1/shared"
 )
 
 type Action struct {
@@ -39,7 +40,7 @@ func main() {
 	defer dbConn.db.Close()
 
 	shared.SetUpKafkaListener(
-		[]string{"order", "stock", "payment"},
+		[]string{"order", "stock", "payment"}, true,
 		func(message *shared.SagaMessage) (*shared.SagaMessage, string) {
 
 			var nextAction Action
