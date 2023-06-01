@@ -12,9 +12,11 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
+const KAFKA_SERVICE = "kafka-service.kafka:9092"
+
 func SetUpKafkaListener(services []string, action func(*SagaMessage) (*SagaMessage, string)) {
 	// Set up Kafka connection configuration
-	brokers := []string{"localhost:9092"}
+	brokers := []string{KAFKA_SERVICE}
 
 	// Set up Kafka reader configuration
 	config := kafka.ReaderConfig{
@@ -96,7 +98,7 @@ func SetUpKafkaListener(services []string, action func(*SagaMessage) (*SagaMessa
 }
 
 func createTopicSender(topic string) *kafka.Conn {
-	conn, err := kafka.DialLeader(context.Background(), "tcp", "localhost:9092", topic, 0)
+	conn, err := kafka.DialLeader(context.Background(), "tcp", KAFKA_SERVICE, topic, 0)
 	if err != nil {
 		log.Fatal("failed to dial leader:", err)
 	}
