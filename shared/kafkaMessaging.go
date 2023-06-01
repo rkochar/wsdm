@@ -92,7 +92,7 @@ func SetUpKafkaListener(services []string, inLockMaster bool, action func(*SagaM
 
 					returnMessage, senderName := action(message)
 
-					if returnMessage == nil {
+					if returnMessage == nil || senderName == "" {
 						continue
 					}
 
