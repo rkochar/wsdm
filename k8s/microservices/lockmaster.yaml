@@ -4,7 +4,6 @@ metadata:
   name: lockmaster
 spec:
   replicas: 1
-  serviceName: mysql
   selector:
     matchLabels:
       app: mysql
@@ -37,6 +36,12 @@ spec:
           env:
             - name: MYSQL_ROOT_PASSWORD
               value: password
+            - name: MYSQL_USER
+              value: user
+            - name: MYSQL_PASSWORD
+              value: pass
+            - name: MYSQL_DATABASE
+              value: lockmaster
           volumeMounts:
             - name: data
               mountPath: /var/lib/mysql

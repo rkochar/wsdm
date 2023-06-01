@@ -1,4 +1,5 @@
 package main
+<<<<<<< HEAD:src/lockmaster/utils.go
 
 import (
 	"encoding/json"
@@ -128,3 +129,5 @@ func getMessageEventString(messageCode int64) (error, string) {
 	}
 	return nil, messageEvent
 }
+=======
+>>>>>>> main:lockmaster/utils.go

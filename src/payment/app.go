@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"WDM-G1/shared"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -73,7 +74,10 @@ func main() {
 	defer cancel()
 
 	var err error
+<<<<<<< HEAD:src/payment/app.go
 	//TODO: implement hash
+=======
+>>>>>>> main:payment/app.go
 	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://paymentdb-svc-0:27017"))
 	if err != nil {
 		log.Fatal(err)
@@ -93,7 +97,7 @@ func main() {
 	router.HandleFunc("/payment/find_user/{user_id}", findUserHandler)
 
 	port := os.Getenv("PORT")
-	fmt.Printf("Current port is: %s\n", port)
+	fmt.Printf("Current port is : %s\n", port)
 	if port == "" {
 		port = "8081"
 	}
@@ -104,7 +108,16 @@ func main() {
 	log.Fatal(http.ListenAndServe(addr, router))
 }
 
+<<<<<<< HEAD:src/payment/app.go
 func getUser(documentID *primitive.ObjectID) (error, *shared.User) {
+=======
+func getUser(userID string) (error, *shared.User) {
+	convErr, documentID := shared.ConvertStringToMongoID(userID)
+	if convErr != nil {
+		return convErr, nil
+	}
+
+>>>>>>> main:payment/app.go
 	var user shared.User
 	err := userCollection.FindOne(context.Background(), bson.M{"_id": documentID}).Decode(&user)
 	if err != nil {
@@ -114,8 +127,22 @@ func getUser(documentID *primitive.ObjectID) (error, *shared.User) {
 	return nil, &user
 }
 
+<<<<<<< HEAD:src/payment/app.go
 func getPayment(userID *primitive.ObjectID, orderID *primitive.ObjectID) (error, *shared.Payment) {
 	filter := bson.M{"userid": userID, "orderid": orderID}
+=======
+func getPayment(userID string, orderID string) (error, *shared.Payment) {
+	userIdConvErr, mongoUserID := shared.ConvertStringToMongoID(userID)
+	if userIdConvErr != nil {
+		return userIdConvErr, nil
+	}
+	orderIdConvErr, mongoOrderID := shared.ConvertStringToMongoID(orderID)
+	if orderIdConvErr != nil {
+		return orderIdConvErr, nil
+	}
+
+	filter := bson.M{"userid": mongoUserID, "orderid": mongoOrderID}
+>>>>>>> main:payment/app.go
 	var payment shared.Payment
 	findErr := paymentCollection.FindOne(context.Background(), filter).Decode(&payment)
 	if findErr != nil {
@@ -124,7 +151,149 @@ func getPayment(userID *primitive.ObjectID, orderID *primitive.ObjectID) (error,
 	return nil, &payment
 }
 
+<<<<<<< HEAD:src/payment/app.go
 // Functions only used by http
+=======
+func payHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	userID := vars["user_id"]
+	orderID := vars["order_id"]
+	amount := vars["amount"]
+
+	userIdConvErr, mongoUserID := shared.ConvertStringToMongoID(userID)
+	if userIdConvErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	amountConvErr, amountFloat := shared.ConvertStringToFloat(amount)
+	if amountConvErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
+		getuserErr, user := getUser(userID)
+		if getuserErr != nil {
+			// fmt.Printf("Get item error")
+			w.WriteHeader(http.StatusBadRequest)
+			return nil, getuserErr
+		}
+		if user.Credit < *amountFloat {
+			// fmt.Printf("Not enough stock")
+			return nil, errors.New("not enough credits to pay")
+		}
+
+		userFilter := bson.M{
+			"_id": mongoUserID,
+		}
+		userUpdate := bson.M{
+			"$inc": bson.M{
+				"credit": -*amountFloat,
+			},
+		}
+		_, userUpdateError := userCollection.UpdateOne(context.Background(), userFilter, userUpdate)
+		if userUpdateError != nil {
+			return nil, userUpdateError
+		}
+
+		payment := shared.Payment{
+			UserID:  userID,
+			OrderID: orderID,
+			Amount:  *amountFloat,
+			Paid:    true,
+		}
+		_, insertErr := paymentCollection.InsertOne(context.Background(), payment)
+		if insertErr != nil {
+			return nil, insertErr
+		}
+
+		return nil, nil
+	}
+
+	session, startSessionErr := client.StartSession()
+	// fmt.Printf("Started session")
+	if startSessionErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	ctx := context.Background()
+	defer session.EndSession(ctx)
+	_, sessionWithTransactionErr := session.WithTransaction(ctx, callback)
+	if sessionWithTransactionErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+}
+
+func cancelPaymentHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	userID := vars["user_id"]
+	orderID := vars["order_id"]
+
+	// TODO: send kafka message to cancel order
+
+	userIdConvErr, mongoUserID := shared.ConvertStringToMongoID(userID)
+	if userIdConvErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	orderIdConvErr, mongoOrderID := shared.ConvertStringToMongoID(orderID)
+	if orderIdConvErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
+		getPaymentErr, payment := getPayment(userID, orderID)
+		if getPaymentErr != nil {
+			return nil, getPaymentErr
+		}
+
+		userFilter := bson.M{
+			"_id": mongoUserID,
+		}
+		userUpdate := bson.M{
+			"$inc": bson.M{
+				"credit": payment.Amount,
+			},
+		}
+		_, userUpdateError := userCollection.UpdateOne(context.Background(), userFilter, userUpdate)
+		if userUpdateError != nil {
+			return nil, userUpdateError
+		}
+
+		paymentFilter := bson.M{
+			"userid":  mongoUserID,
+			"orderid": mongoOrderID,
+		}
+		paymentUpdate := bson.M{
+			"$set": bson.M{
+				"paid": false,
+			},
+		}
+		_, paymentUpdateErr := paymentCollection.UpdateOne(context.Background(), paymentFilter, paymentUpdate)
+		if paymentUpdateErr != nil {
+			return nil, paymentUpdateErr
+		}
+
+		return nil, nil
+	}
+
+	session, startSessionErr := client.StartSession()
+	// fmt.Printf("Started session")
+	if startSessionErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	ctx := context.Background()
+	defer session.EndSession(ctx)
+	_, sessionWithTransactionErr := session.WithTransaction(ctx, callback)
+	if sessionWithTransactionErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+}
+>>>>>>> main:payment/app.go
 
 func paymentStatusHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)

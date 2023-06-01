@@ -2,6 +2,7 @@
 
 ## Checkout SAGA
 ### Successful SAGA
+<<<<<<< HEAD:src/lockmaster/messages.md
 1. **Order-SAGA**: `START-CHECKOUT-SAGA_{}_{ORDER_JSON}`
 2. **SAGA-Stock**: `START-SUBTRACT-STOCK_{SAGA_ID}_{ORDER_JSON}`
 3. **Stock-SAGA**: `END-SUBTRACT-STOCK_{SAGA_ID}_{ORDER_JSON}`
@@ -44,6 +45,54 @@
 ## Order
 ### From Order (order-ack)
 - `START-CHECKOUT-SAGA_{}_{ORDER_JSON}` the Order service fetches the Order object as JSON given its ID
+=======
+1. **Order-SAGA**: `START-CHECKOUT-SAGA_{ORDER_JSON}`
+2. ~~SAGA creates SAGA ID: `CREATE-CHECKOUT-SAGA_{SAGA_ID}_{ORDER_JSON}`~~
+3. **SAGA-Stock**: `START-SUBTRACT-STOCK_{SAGA_ID}_{ORDER_JSON}`
+4. **Stock-SAGA**: `END-SUBTRACT-STOCK_{SAGA_ID}_{ORDER_JSON}`
+5. **SAGA-Payment**: `START-MAKE-PAYMENT_{SAGA_ID}_{ORDER_JSON}`
+6. **Payment-SAGA**: `END-MAKE-PAYMENT_{SAGA_ID}_{ORDER_JSON}`
+7. **SAGA-Order**: `START-UPDATE-ORDER_{SAGA_ID}_{ORDER_JSON}`
+8. **Order-SAGA**: `END-UPDATE-ORDER_{SAGA_ID}_{ORDER_JSON}`
+9. SAGA Done: `END-CHECKOUT-SAGA_{SAGA_ID}`
+
+### Stock Fails SAGA
+1. **Order-SAGA**: `START-CHECKOUT-SAGA_{ORDER_JSON}`
+2. ~~SAGA creates SAGA ID: `CREATE-CHECKOUT-SAGA_{SAGA_ID}_{ORDER_JSON}`~~
+3. **SAGA-Stock**: `START-SUBTRACT-STOCK_{SAGA_ID}_{ORDER_JSON}`
+4. **Stock-SAGA**: `ABORT-CHECKOUT-SAGA_{SAGA_ID}_{ORDER_JSON}`
+5. SAGA Successfully failed: `END-CHECKOUT-SAGA_{SAGA_ID}`
+
+### Payment Fails SAGA
+1. **Order-SAGA**: `START-CHECKOUT-SAGA_{ORDER_JSON}`
+2. ~~SAGA creates SAGA ID: `CREATE-CHECKOUT-SAGA_{SAGA_ID}_{ORDER_JSON}`~~
+3. **SAGA-Stock**: `START-SUBTRACT-STOCK_{SAGA_ID}_{ORDER_JSON}`
+4. **Stock-SAGA**: `END-SUBTRACT-STOCK_{SAGA_ID}_{ORDER_JSON}`
+5. **SAGA-Payment**: `START-MAKE-PAYMENT_{SAGA_ID}_{ORDER_JSON}`
+6. **Payment-SAGA**: `ABORT-CHECKOUT-SAGA_{SAGA_ID}_{ORDER_JSON}`
+7. **SAGA-Stock**: `START-READD-STOCK_{SAGA_ID}_{ORDER_JSON}`
+8. **Stock-SAGA**: `END-READD-STOCK_{SAGA_ID}_{ORDER_JSON}`
+9. SAGA Successfully failed: `END-CHECKOUT-SAGA_{SAGA_ID}`
+
+### Order Fails SAGA
+1. **Order-SAGA**: `START-CHECKOUT-SAGA_{ORDER_JSON}`
+2. ~~SAGA creates SAGA ID: `CREATE-CHECKOUT-SAGA_{SAGA_ID}_{ORDER_JSON}`~~
+3. **SAGA-Stock**: `START-SUBTRACT-STOCK_{SAGA_ID}_{ORDER_JSON}`
+4. **Stock-SAGA**: `END-SUBTRACT-STOCK_{SAGA_ID}_{ORDER_JSON}`
+5. **SAGA-Payment**: `START-MAKE-PAYMENT_{SAGA_ID}_{ORDER_JSON}`
+6. **Payment-SAGA**: `END-MAKE-PAYMENT_{SAGA_ID}_{ORDER_JSON}`
+7. **SAGA-Order**: `START-UPDATE-ORDER_{SAGA_ID}_{ORDER_JSON}`
+8. **Order-SAGA**: `ABORT-CHECKOUT-SAGA_{SAGA_ID}_{ORDER_JSON}`
+9. **SAGA-Payment**: `START-CANCEL-PAYMENT_{SAGA_ID}_{ORDER_JSON}`
+10. **Payment-SAGA**: `END-CANCEL-PAYMENT_{SAGA_ID}_{ORDER_JSON}`
+11. **SAGA-Stock**: `START-READD-STOCK_{SAGA_ID}_{ORDER_JSON}`
+12. **Stock-SAGA**: `END-READD-STOCK_{SAGA_ID}_{ORDER_JSON}`
+13. SAGA Successfully failed: `END-CHECKOUT-SAGA_{SAGA_ID}`
+
+## Order
+### From Order (order-ack)
+- `START-CHECKOUT-SAGA_{ORDER_JSON}` the Order service fetches the Order object as JSON given its ID
+>>>>>>> main:lockmaster/messages.md
 - `END-UPDATE-ORDER_{SAGA_ID}_{ORDER_JSON}`
 ### To Order (order-syn)
 - `START-UPDATE-ORDER_{SAGA_ID}_{ORDER_JSON}`
@@ -66,6 +115,12 @@
 - `START-MAKE-PAYMENT_{SAGA_ID}_{ORDER_JSON}`
 - `START-CANCEL-PAYMENT_{SAGA_ID}_{ORDER_JSON}`
 
+<<<<<<< HEAD:src/lockmaster/messages.md
 
 Entry: name | saga-id | json-content | timestamp
 PK: saga-id
+=======
+# SAGA Database Schema
+
+Entry: name | saga-id | json-content | (saga-position / timestamp)
+>>>>>>> main:lockmaster/messages.md

@@ -1,15 +1,11 @@
-module main
+module github.com/gijspaardekooper/WDM-G1
 
-go 1.18
+go 1.20
 
 replace WDM-G1/shared => ../shared
 
 require (
-<<<<<<< HEAD:src/go.mod
-	github.com/go-sql-driver/mysql v1.7.1
-=======
 	WDM-G1/shared v0.0.0-00010101000000-000000000000
->>>>>>> main:payment/go.mod
 	github.com/gorilla/mux v1.8.0
 	github.com/segmentio/kafka-go v0.4.40
 	go.mongodb.org/mongo-driver v1.11.6
