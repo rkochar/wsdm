@@ -1,16 +1,11 @@
 #!/bin/bash
 
-echo "Deleting mongo"
-echo "StockDB"
-./kubernetes/stockdb/delete-stockdb.sh
+echo "Start deleting mongodb"
+./k8s/mongodb/delete-mongodb.sh
 
-echo "OrderDB"
-./kubernetes/orderdb/delete-orderdb.sh
+echo "Start deleting microservices"
+./k8s/microservices/delete-microservice.sh
 
-echo "PaymentDB"
-./kubernetes/paymentdb/delete-paymentdb.sh
+echo "Start deleting kafka"
+./k8s/kafka/delete-kafka.sh
 
-./k8s/delete-microservice.sh
-
-
-./kafka/delete-kakfa.sh

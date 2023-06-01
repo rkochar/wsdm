@@ -1,10 +1,10 @@
 #!/bin/bash
 
+echo "Starting mongo deployment"
+./k8s/mongodb/deploy-mongodb.sh
 
-docker-compose up --build
+echo "Starting kafka deployment"
+./k8s/kafka/deploy-kafka.sh
 
-./mongodb/deploy-mongo.sh
-
-./kafka/deploy-kakfa.sh
-
-./k8s/deploy-microservice.sh
+echo "Starting microservices deployment"
+./k8s/microservices/deploy-microservice.sh

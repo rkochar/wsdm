@@ -52,13 +52,13 @@ jobs:
         with:
           filters: |
             stock:
-              - 'stock/*.go'
+              - 'src/stock/*.go'
             order:
-              - 'order/*.go'
+              - 'src/order/*.go'
             payment:
-              - 'payment/*.go'
+              - 'src/payment/*.go'
             lockmaster:
-              - 'lockmaster/*.go'
+              - 'src/lockmaster/*.go'
 
       - name: stock-release-image
         if: steps.check-changes.outputs.stock == 'true'
