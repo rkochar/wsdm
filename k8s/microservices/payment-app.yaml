@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
         - name: payment
-          image: ghcr.io/rkochar/wsdm/payment:latest
+          image: ghcr.io/rkochar/wsdm/payment:test
           imagePullPolicy: IfNotPresent
           resources:
             limits:

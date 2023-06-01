@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: orderdb-svc-2
+  name: orderdb-service-2
 spec:
   selector:
     app: orderdb-2
@@ -18,7 +18,7 @@ kind: StatefulSet
 metadata:
   name: orderdb-2
 spec:
-  serviceName: orderdb-svc-2
+  serviceName: orderdb-service-2
   replicas: 1
   selector:
     matchLabels:

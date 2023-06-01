@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: lockmasterdb-service-6
+spec:
+  selector:
+    app: lockmasterdb-6
+  ports:
+    - name: lockmasterdb-6
+      port: 3306
+      targetPort: 3306
+  clusterIP: None
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: lockmasterdb-6
+spec:
+  serviceName: lockmasterdb-service-6
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lockmasterdb-6
+  template:
+    metadata:
+      labels:
+        app: lockmasterdb-6
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: lockmasterdb-6
+          image: mysql:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: tpc
+              protocol: TCP
+              containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: password
+            - name: MYSQL_USER
+              value: user
+            - name: MYSQL_PASSWORD
+              value: pass
+            - name: MYSQL_DATABASE
+              value: lockmaster
+          volumeMounts:
+            - name: lockmasterdb-pvc-6
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: lockmasterdb-pvc-6
+      spec:
+        storageClassName: standard
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi

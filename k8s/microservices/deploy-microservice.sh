@@ -13,4 +13,4 @@ echo "Deploying payment"
 kubectl apply -f ./k8s/microservices/payment-app.yaml
 
 echo "Deploying lockmaster"
-kubectl apply -f ./k8s/microservices/lockmaster.yaml
+kubectl apply -f ./k8s/microservices/lockmaster-app.yaml

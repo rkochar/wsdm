@@ -1,32 +1,36 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: lockmasterdb-service-4
+spec:
+  selector:
+    app: lockmasterdb-4
+  ports:
+    - name: lockmasterdb-4
+      port: 3306
+      targetPort: 3306
+  clusterIP: None
+
+---
+
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: lockmaster
+  name: lockmasterdb-4
 spec:
+  serviceName: lockmasterdb-service-4
   replicas: 1
   selector:
     matchLabels:
-      app: mysql
+      app: lockmasterdb-4
   template:
     metadata:
       labels:
-        app: mysql
+        app: lockmasterdb-4
     spec:
       terminationGracePeriodSeconds: 10
       containers:
-        - name: lockmaster
-          image: ghcr.io/rkochar/wsdm/lockmaster:latest
-          imagePullPolicy: IfNotPresent
-          resources:
-            limits:
-              memory: "1Gi"
-              cpu: "1"
-            requests:
-              memory: "1Gi"
-              cpu: "1"
-          ports:
-          - containerPort: 5000
-        - name: mysql
+        - name: lockmasterdb-4
           image: mysql:latest
           imagePullPolicy: IfNotPresent
           ports:
@@ -43,11 +47,11 @@ spec:
             - name: MYSQL_DATABASE
               value: lockmaster
           volumeMounts:
-            - name: data
+            - name: lockmasterdb-pvc-4
               mountPath: /var/lib/mysql
   volumeClaimTemplates:
     - metadata:
-        name: data
+        name: lockmasterdb-pvc-4
       spec:
         storageClassName: standard
         accessModes:
