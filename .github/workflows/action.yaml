@@ -52,24 +52,22 @@ jobs:
         with:
           filters: |
             stock:
-              - 'stock/Dockerfile'
-              - 'stock/*.go'
+              - 'src/stock/*.go'
             order:
-              - 'order/Dockerfile'
-              - 'order/*.go'
+              - 'src/order/*.go'
             payment:
-              - 'payment/Dockerfile'
-              - 'payment/*.go'
+              - 'src/payment/*.go'
             lockmaster:
-              - 'lockmaster/Dockerfile'
-              - 'lockmaster/*.go'
+              - 'src/lockmaster/*.go'
 
       - name: stock-release-image
         if: steps.check-changes.outputs.stock == 'true'
         id: stock-image
         uses: docker/build-push-action@v4.0.0
         with:
-          context: ./stock
+          context: ./
+          build-args: |
+            SERVICE=stock
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/stock:latest
@@ -80,7 +78,9 @@ jobs:
         id: order-image
         uses: docker/build-push-action@v4.0.0
         with:
-          context: ./order
+          context: ./
+          build-args: |
+            SERVICE=order
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/order:latest
@@ -91,7 +91,9 @@ jobs:
         id: payment-image
         uses: docker/build-push-action@v4.0.0
         with:
-          context: ./payment
+          context: ./
+          build-args: |
+            SERVICE=payment
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/payment:latest
@@ -102,7 +104,9 @@ jobs:
         id: lockmaster-image
         uses: docker/build-push-action@v4.0.0
         with:
-          context: ./lockmaster
+          context: ./
+          build-args: |
+            SERVICE=lockmaster
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/lockmaster:latest

@@ -1,13 +1,9 @@
-package main
+package shared
 
 import (
-	"context"
-	"fmt"
-	"log"
 	"strconv"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func ConvertStringToMongoID(key string) (error, *primitive.ObjectID) {
@@ -26,16 +22,10 @@ func ConvertStringToFloat(number string) (error, *float64) {
 	return nil, &float
 }
 
-func FindSingleDocument(coll *mongo.Collection, filter interface{}, result interface{}) interface{} {
-	err := coll.FindOne(context.Background(), filter).Decode(&result)
+func ConvertStringToInt(number string) (error, *int64) {
+	integerNum, err := strconv.ParseInt(number, 10, 64)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			fmt.Println("No document found with the given filter")
-		} else {
-			log.Fatal(err)
-		}
-		return nil
+		return err, nil
 	}
-	fmt.Printf("Found document: %+v\n", result)
-	return result
+	return nil, &integerNum
 }
