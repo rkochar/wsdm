@@ -83,7 +83,6 @@ func SetUpKafkaListener(services []string, inLockMaster bool, action func(*SagaM
 					fmt.Printf("Received message for topic %s: Partition=%d, Offset=%d, Key=%s, Value=%s\n",
 						topic, m.Partition, m.Offset, string(m.Key), string(m.Value))
 
-					fmt.Println("m.Value: %s", string(m.Value))
 					parseErr, message := ParseSagaMessage(string(m.Value))
 					if parseErr != nil {
 						fmt.Printf("Error parsing message: %s\n", parseErr)
@@ -126,16 +125,16 @@ func CreateTopicReader(topicName string, config kafka.ReaderConfig) *kafka.Reade
 }
 
 func SendSagaMessage(message *SagaMessage, conn *kafka.Conn) error {
-	fmt.Println("message.Order:", message.Order)
 	jsonByteArray, marshalError := json.Marshal(message.Order)
 	if marshalError != nil {
 		return marshalError
 	}
 
 	messageBuffer := bytes.Buffer{}
-	messageBuffer.WriteString("START_CHECKOUT-SAGA_")
+	messageBuffer.WriteString(message.Name)
+	messageBuffer.WriteRune('_')
 	messageBuffer.WriteString(strconv.FormatInt(message.SagaID, 10))
-	messageBuffer.WriteString("_")
+	messageBuffer.WriteRune('_')
 	messageBuffer.Write(jsonByteArray)
 
 	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))

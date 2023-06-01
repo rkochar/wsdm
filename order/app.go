@@ -83,7 +83,7 @@ func getOrder(orderID *primitive.ObjectID) (error, *shared.Order) {
 	if findDocErr != nil {
 		return findDocErr, nil
 	}
-	// order.OrderID = orderID.String()
+	order.OrderID = orderID.String()
 	return nil, &order
 }
 
@@ -102,7 +102,7 @@ func createOrderHandler(w http.ResponseWriter, r *http.Request) {
 	order := shared.Order{
 		Paid:      false,
 		Items:     []string{},
-		UserID:    mongoUserID.String(),
+		UserID:    mongoUserID.Hex(),
 		TotalCost: 0.0,
 	}
 
@@ -169,15 +169,15 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 	itemID := vars["item_id"]
 
 	// fmt.Printf("Adding item %s to order %s", itemID, orderID)
-	// convertItemIDErr, mongoItemID := shared.ConvertStringToMongoID(itemID)
-	// if convertItemIDErr != nil {
-	//	w.WriteHeader(http.StatusBadRequest)
-	//	return
-	// }
+	convertItemIDErr, mongoItemID := shared.ConvertStringToMongoID(itemID)
+	if convertItemIDErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	// TODO: use kafka
 
-	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://localhost:8082/stock/find/%s", itemID))
+	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://localhost:8081/stock/find/%s", mongoItemID.Hex()))
 	// fmt.Printf("response: %s", getStockResponse.StatusCode)
 	// fmt.Printf("get stock err: %s", getStockErr)
 	if getStockErr != nil {
@@ -202,7 +202,7 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 	orderFilter := bson.M{"_id": mongoOrderID}
 	orderUpdate := bson.M{
 		"$push": bson.M{
-			"items": itemID,
+			"items": mongoItemID.Hex(),
 		},
 		"$inc": bson.M{
 			"totalcost": item.Price,
@@ -228,7 +228,7 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: use kafka
 
-	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://localhost:8082/stock/find/%s", mongoItemID))
+	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://localhost:8081/stock/find/%s", mongoItemID))
 	if getStockErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -277,7 +277,7 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	getOrderErr, order := getOrder(mongoOrderID)
 	order.OrderID = orderID
-	fmt.Println("Order ID", orderID, order.OrderID)
+	// fmt.Println("Order ID", orderID, order.OrderID)
 	if getOrderErr != nil {
 		fmt.Println("Get order error")
 		w.WriteHeader(http.StatusBadRequest)
@@ -286,16 +286,13 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	sender := shared.CreateTopicSender("order-ack")
 	defer sender.Close()
-	fmt.Println("Order ID V2", orderID, order.OrderID)
+
 	message := shared.SagaMessage{
 		Name:   "START-CHECKOUT-SAGA",
 		SagaID: -1,
 		Order:  *order,
 	}
-	fmt.Println("Message: ", message)
-	message.Order.OrderID = orderID
-	fmt.Println("Message v2: ", message)
-	fmt.Println("Message v3: ", &message)
+	// message.Order.OrderID = orderID
 
 	sendErr := shared.SendSagaMessage(&message, sender)
 	if sendErr != nil {

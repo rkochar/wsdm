@@ -109,7 +109,7 @@ func getUser(documentID *primitive.ObjectID) (error, *shared.User) {
 	if err != nil {
 		return err, nil
 	}
-	user.UserID = documentID.String()
+	user.UserID = documentID.Hex()
 	return nil, &user
 }
 
@@ -302,8 +302,8 @@ func pay(userID *primitive.ObjectID, orderID *primitive.ObjectID, amount *float6
 		}
 
 		payment := shared.Payment{
-			UserID:  userID.String(),
-			OrderID: orderID.String(),
+			UserID:  userID.Hex(),
+			OrderID: orderID.Hex(),
 			Amount:  *amount,
 			Paid:    true,
 		}

@@ -24,7 +24,7 @@ func ParseSagaMessage(message string) (error, *SagaMessage) {
 
 	unmarshalErr := json.Unmarshal([]byte(parts[2]), &order)
 	if unmarshalErr != nil {
-		fmt.Println("JSON Unmarshale error", unmarshalErr)
+		fmt.Println("JSON Unmarshall error", unmarshalErr)
 		return unmarshalErr, nil
 	}
 	convErr, sagaIntID := ConvertStringToInt(parts[1])
