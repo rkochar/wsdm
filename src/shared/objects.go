@@ -9,9 +9,9 @@ type Order struct {
 }
 
 type Item struct {
-	StockID string  `json:"item_id"`
-	Stock   int64   `json:"stock"`
-	Price   float64 `json:"price"`
+	ItemID string  `json:"item_id"`
+	Stock  int64   `json:"stock"`
+	Price  float64 `json:"price"`
 }
 
 type User struct {

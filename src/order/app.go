@@ -47,7 +47,7 @@ func main() {
 	defer cancel()
 
 	var err error
-	//TODO: implement hash
+	// TODO: implement hash
 	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://orderdb-svc-0:27017"))
 
 	if err != nil {
@@ -230,7 +230,7 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: use kafka
 
-	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://localhost:8081/stock/find/%s", mongoItemID))
+	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://localhost:8081/stock/find/%s", mongoItemID.Hex()))
 	if getStockErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return

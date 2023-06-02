@@ -86,7 +86,7 @@ func main() {
 	defer cancel()
 
 	var err error
-	//TODO: implement hash
+	// TODO: implement hash
 	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://stockdb-svc-0:27017"))
 	if err != nil {
 		log.Fatal(err)
@@ -120,7 +120,7 @@ func getItem(documentID *primitive.ObjectID) (error, *shared.Item) {
 	if err != nil {
 		return err, nil
 	}
-	item.StockID = documentID.String()
+	item.ItemID = documentID.String()
 	return nil, &item
 }
 
@@ -129,7 +129,7 @@ func getItem(documentID *primitive.ObjectID) (error, *shared.Item) {
 func findHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	itemID := vars["item_id"]
-	fmt.Printf("item ID: %s", itemID)
+	// fmt.Printf("item ID: %s", itemID)
 
 	convertDocIDErr, documentID := shared.ConvertStringToMongoID(itemID)
 	if convertDocIDErr != nil {
@@ -173,7 +173,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	stockID := result.InsertedID.(primitive.ObjectID).Hex()
 	// fmt.Printf("Created a new item with ID: %s\n", stockID)
-	stock.StockID = stockID
+	stock.ItemID = stockID
 
 	w.Header().Set("Content-Type", "application/json")
 	jsonEncodeErr := json.NewEncoder(w).Encode(stock)
