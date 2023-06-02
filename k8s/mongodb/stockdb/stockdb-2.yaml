@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: stockdb-svc-2
+  name: stockdb-service-2
 spec:
   selector:
     app: stockdb-2
@@ -18,7 +18,7 @@ kind: StatefulSet
 metadata:
   name: stockdb-2
 spec:
-  serviceName: stockdb-svc-2
+  serviceName: stockdb-service-2
   replicas: 1
   selector:
     matchLabels:

@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: paymentdb-svc-2
+  name: paymentdb-service-2
 spec:
   selector:
     app: paymentdb-2
@@ -18,7 +18,7 @@ kind: StatefulSet
 metadata:
   name: paymentdb-2
 spec:
-  serviceName: paymentdb-svc-2
+  serviceName: paymentdb-service-2
   replicas: 1
   selector:
     matchLabels:

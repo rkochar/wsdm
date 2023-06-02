@@ -29,8 +29,8 @@ spec:
     spec:
       containers:
         - name: stock
-          image: stock:latest
-          imagePullPolicy: Never
+          image: ghcr.io/rkochar/wsdm/stock:test
+          imagePullPolicy: IfNotPresent
           resources:
             limits:
               memory: "1Gi"
@@ -40,5 +40,19 @@ spec:
               cpu: "1"
           ports:
             - containerPort: 5000
-      imagePullSecrets:
-        - name: regcred-ghcr
+
+---
+
+
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: stock-autoscaler
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: stock-deployment
+  minReplicas: 5
+  maxReplicas: 25
+  targetCPUUtilizationPercentage: 50
