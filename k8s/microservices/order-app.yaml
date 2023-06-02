@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
         - name: order
-          image: ghcr.io/rkochar/wsdm/order:latest
+          image: ghcr.io/rkochar/wsdm/order:test
           imagePullPolicy: IfNotPresent
           resources:
             limits:
@@ -40,3 +40,19 @@ spec:
               cpu: "1"
           ports:
             - containerPort: 5000
+
+---
+
+
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: order-autoscaler
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: order-deployment
+  minReplicas: 5
+  maxReplicas: 25
+  targetCPUUtilizationPercentage: 50

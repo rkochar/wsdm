@@ -1,4 +1,3 @@
-<<<<<<< HEAD:src/shared/conversion.go
 package shared
 
 import (
@@ -30,6 +29,3 @@ func ConvertStringToInt(number string) (error, *int64) {
 	}
 	return nil, &integerNum
 }
-=======
-package main
->>>>>>> main:stock/utils.go
