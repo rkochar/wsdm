@@ -85,7 +85,7 @@ func getOrder(orderID *primitive.ObjectID) (error, *shared.Order) {
 	if findDocErr != nil {
 		return findDocErr, nil
 	}
-	order.OrderID = orderID.String()
+	order.OrderID = orderID.Hex()
 	return nil, &order
 }
 

@@ -120,7 +120,7 @@ func getItem(documentID *primitive.ObjectID) (error, *shared.Item) {
 	if err != nil {
 		return err, nil
 	}
-	item.ItemID = documentID.String()
+	item.ItemID = documentID.Hex()
 	return nil, &item
 }
 
