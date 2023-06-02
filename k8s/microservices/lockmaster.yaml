@@ -15,8 +15,8 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
         - name: lockmaster
-          image: ghcr.io/rkochar/wsdm/lockmaster:latest
-          imagePullPolicy: IfNotPresent
+          image: lockmaster:latest
+          imagePullPolicy: Never
           resources:
             limits:
               memory: "1Gi"

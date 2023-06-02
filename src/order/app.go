@@ -285,8 +285,8 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//TODO :deepali: create senders and listeners only once and use
-	sender := shared.CreateTopicSender("order-ack")
+	//TODO :deepali: create senders and listeners only once and use, abstract out parition hardcoding
+	sender := shared.CreateConnection("order-ack", 1)
 	defer sender.Close()
 	fmt.Println("Order ID V2", orderID, order.OrderID)
 	message := shared.SagaMessage{

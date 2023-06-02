@@ -4,8 +4,10 @@
 echo "Reset"
 eval $(minikube -p wsdm1 docker-env)
 
-echo "Deleting order"
-kubectl delete -f k8s/microservices/order-app.yaml
 
-echo "Deleting order"
-kubectl apply -f k8s/microservices/order-app.yaml
+docker build . --build-arg SERVICE=payment -t payment:latest
+echo "Deleting payment"
+kubectl delete -f k8s/microservices/payment-app.yaml
+
+echo "Deleting payment"
+kubectl apply -f k8s/microservices/payment-app.yaml
