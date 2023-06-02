@@ -1,7 +1,11 @@
 #!/bin/bash
 
-./mongo/delete-mongo-stateful-replicasets.sh
+echo "Start deleting mongodb"
+./k8s/mongodb/delete-mongodb.sh
 
-./k8s/delete-microservice.sh
+echo "Start deleting microservices"
+./k8s/microservices/delete-microservice.sh
 
-./kafka/delete-kafka.sh
+echo "Start deleting kafka"
+./k8s/kafka/delete-kafka.sh
+

@@ -1,7 +1,10 @@
 #!/bin/bash
 
-./mongo/deploy-mongo-stateful-replicasets.sh
+echo "Starting mongo deployment"
+./k8s/mongodb/deploy-mongodb.sh
 
-./kafka/deploy-kafka.sh
+echo "Starting kafka deployment"
+./k8s/kafka/deploy-kafka.sh
 
-./k8s/deploy-microservice.sh
+echo "Starting microservices deployment"
+./k8s/microservices/deploy-microservice.sh
