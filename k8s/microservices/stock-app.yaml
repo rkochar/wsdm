@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
         - name: stock
-          image: ghcr.io/rkochar/wsdm/stock:test
+          image: ghcr.io/rkochar/wsdm/stock:latest
           imagePullPolicy: IfNotPresent
           resources:
             limits:
@@ -53,6 +53,6 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: stock-deployment
-  minReplicas: 5
+  minReplicas: 1
   maxReplicas: 25
   targetCPUUtilizationPercentage: 50

@@ -30,7 +30,7 @@ spec:
       containers:
         - name: payment
 
-          image: ghcr.io/rkochar/wsdm/payment:test
+          image: ghcr.io/rkochar/wsdm/payment:latest
           imagePullPolicy: IfNotPresent
           resources:
             limits:
@@ -53,6 +53,6 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: payment-deployment
-  minReplicas: 5
+  minReplicas: 1
   maxReplicas: 25
   targetCPUUtilizationPercentage: 50
