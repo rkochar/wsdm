@@ -48,7 +48,8 @@ func main() {
 
 	var err error
 	// TODO: implement hash
-	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://orderdb-svc-0:27017"))
+	//client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://orderdb-svc-0:27017"))
+	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
 
 	if err != nil {
 		log.Fatal(err)
@@ -179,7 +180,7 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: use kafka
 
-	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://localhost:8081/stock/find/%s", mongoItemID.Hex()))
+	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://localhost:8082/stock/find/%s", mongoItemID.Hex()))
 	// fmt.Printf("response: %s", getStockResponse.StatusCode)
 	// fmt.Printf("get stock err: %s", getStockErr)
 	if getStockErr != nil {
@@ -230,7 +231,7 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: use kafka
 
-	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://localhost:8081/stock/find/%s", mongoItemID.Hex()))
+	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://localhost:8082/stock/find/%s", mongoItemID.Hex()))
 	if getStockErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
