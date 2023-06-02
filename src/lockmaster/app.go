@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"WDM-G1/shared"
 )
 
@@ -53,7 +51,6 @@ func main() {
 				nextAction, messageResponseAvailable = failActionMap[previousMessage.Name]
 			} else {
 				nextAction, messageResponseAvailable = successfulActionMap[message.Name]
-				fmt.Printf("Next action topic: %s next message: %s\n", nextAction.topic, nextAction.nextMessage)
 			}
 
 			if !messageResponseAvailable {

@@ -1,3 +1,4 @@
+import time
 import unittest
 
 import utils as tu
@@ -110,6 +111,8 @@ class TestMicroservices(unittest.TestCase):
 
         checkout_response = tu.checkout_order(order_id).status_code
         # self.assertTrue(tu.status_code_is_failure(checkout_response))
+        time.sleep(2)
+        self.assertEqual(bool(tu.find_order(order_id)['paid']), False)
 
         stock_after_subtract: int = tu.find_item(item_id1)['stock']
         self.assertEqual(stock_after_subtract, 15)
@@ -122,6 +125,8 @@ class TestMicroservices(unittest.TestCase):
 
         checkout_response = tu.checkout_order(order_id).status_code
         # self.assertTrue(tu.status_code_is_failure(checkout_response))
+        time.sleep(2)
+        self.assertEqual(bool(tu.find_order(order_id)['paid']), False)
 
         add_credit_response = tu.add_credit_to_user(user_id, 15)
         self.assertTrue(tu.status_code_is_success(int(add_credit_response)))
@@ -134,6 +139,8 @@ class TestMicroservices(unittest.TestCase):
 
         checkout_response = tu.checkout_order(order_id).status_code
         # self.assertTrue(tu.status_code_is_success(checkout_response))
+        time.sleep(2)
+        self.assertEqual(bool(tu.find_order(order_id)['paid']), True)
 
         stock_after_subtract: int = tu.find_item(item_id1)['stock']
         self.assertEqual(stock_after_subtract, 14)

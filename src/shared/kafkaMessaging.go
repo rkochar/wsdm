@@ -83,8 +83,7 @@ func SetUpKafkaListener(services []string, inLockMaster bool, action func(*SagaM
 						continue
 					}
 
-					fmt.Printf("Received message for topic %s: Partition=%d, Offset=%d, Key=%s, Value=%s\n",
-						topic, m.Partition, m.Offset, string(m.Key), string(m.Value))
+					fmt.Printf("Received message for topic %s: %s\n", topic, string(m.Value))
 
 					parseErr, message := ParseSagaMessage(string(m.Value))
 					if parseErr != nil {
@@ -98,6 +97,8 @@ func SetUpKafkaListener(services []string, inLockMaster bool, action func(*SagaM
 					if returnMessage == nil || senderName == "" {
 						continue
 					}
+
+					fmt.Printf("Sending message to topic %s: %s_%d\n", senderName, returnMessage.Name, returnMessage.SagaID)
 
 					sendErr := SendSagaMessage(returnMessage, senderMap[senderName])
 					if sendErr != nil {

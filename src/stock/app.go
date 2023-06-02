@@ -87,7 +87,7 @@ func main() {
 
 	var err error
 	// TODO: implement hash
-	//client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://stockdb-svc-0:27017"))
+	// client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://stockdb-svc-0:27017"))
 	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
 	if err != nil {
 		log.Fatal(err)
@@ -139,7 +139,7 @@ func findHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("Find: %s\n", itemID)
+	// fmt.Printf("Find: %s\n", itemID)
 	findErr, item := getItem(documentID)
 	if findErr != nil {
 		fmt.Println("GET ITEM ERROR")
@@ -231,7 +231,7 @@ func subtract(changes []ItemChange) (clientError error, serverError error) {
 					"stock": -change.amount,
 				},
 			}
-			_, updateErr := stockCollection.UpdateOne(context.Background(), bson.M{"_id": change.itemID}, update)
+			_, updateErr := stockCollection.UpdateOne(sessCtx, bson.M{"_id": change.itemID}, update)
 			if updateErr != nil {
 				// fmt.Printf("Update stock error: %s", updateErr)
 				return nil, updateErr
@@ -293,7 +293,7 @@ func add(changes []ItemChange) (clientError error, serverError error) {
 					"stock": change.amount,
 				},
 			}
-			_, updateError := stockCollection.UpdateOne(context.Background(), filter, update)
+			_, updateError := stockCollection.UpdateOne(sessCtx, filter, update)
 			if updateError != nil {
 				return nil, updateError
 			}

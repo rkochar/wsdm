@@ -40,7 +40,6 @@ func main() {
 			// TODO: remove code duplication
 
 			if message.Name == "START-MAKE-PAYMENT" {
-				fmt.Printf("STARTING PAYMENT!\n")
 				// ignore error, wil not happen
 				_, mongoUserID := shared.ConvertStringToMongoID(message.Order.UserID)
 				_, mongoOrderID := shared.ConvertStringToMongoID(message.Order.OrderID)
@@ -73,7 +72,7 @@ func main() {
 	defer cancel()
 
 	var err error
-	//client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://paymentdb-svc-0:27017"))
+	// client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://paymentdb-svc-0:27017"))
 	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
 	if err != nil {
 		log.Fatal(err)
@@ -297,7 +296,7 @@ func pay(userID *primitive.ObjectID, orderID *primitive.ObjectID, amount *float6
 				"credit": -*amount,
 			},
 		}
-		_, userUpdateError := userCollection.UpdateOne(context.Background(), userFilter, userUpdate)
+		_, userUpdateError := userCollection.UpdateOne(sessCtx, userFilter, userUpdate)
 		if userUpdateError != nil {
 			return nil, userUpdateError
 		}
@@ -308,7 +307,7 @@ func pay(userID *primitive.ObjectID, orderID *primitive.ObjectID, amount *float6
 			Amount:  *amount,
 			Paid:    true,
 		}
-		_, insertErr := paymentCollection.InsertOne(context.Background(), payment)
+		_, insertErr := paymentCollection.InsertOne(sessCtx, payment)
 		if insertErr != nil {
 			return nil, insertErr
 		}
@@ -375,7 +374,7 @@ func cancelPayment(userID *primitive.ObjectID, orderID *primitive.ObjectID) (cli
 				"credit": payment.Amount,
 			},
 		}
-		_, userUpdateError := userCollection.UpdateOne(context.Background(), userFilter, userUpdate)
+		_, userUpdateError := userCollection.UpdateOne(sessCtx, userFilter, userUpdate)
 		if userUpdateError != nil {
 			return nil, userUpdateError
 		}
@@ -389,7 +388,7 @@ func cancelPayment(userID *primitive.ObjectID, orderID *primitive.ObjectID) (cli
 				"paid": false,
 			},
 		}
-		_, paymentUpdateErr := paymentCollection.UpdateOne(context.Background(), paymentFilter, paymentUpdate)
+		_, paymentUpdateErr := paymentCollection.UpdateOne(sessCtx, paymentFilter, paymentUpdate)
 		if paymentUpdateErr != nil {
 			return nil, paymentUpdateErr
 		}
