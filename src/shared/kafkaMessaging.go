@@ -15,7 +15,8 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-const KAFKA_SERVICE = "kafka-service.kafka:9092"
+// const KAFKA_SERVICE = "kafka-service.kafka:9092"
+const KAFKA_SERVICE = "localhost:9092"
 
 func SetUpKafkaListener(services []string, inLockMaster bool, action func(*SagaMessage) (*SagaMessage, string)) {
 	// Set up Kafka connection configuration
