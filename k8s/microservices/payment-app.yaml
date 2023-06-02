@@ -29,6 +29,7 @@ spec:
     spec:
       containers:
         - name: payment
+
           image: ghcr.io/rkochar/wsdm/payment:test
           imagePullPolicy: IfNotPresent
           resources:
