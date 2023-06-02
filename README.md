@@ -47,15 +47,11 @@ Enable ingress.
 
 `minikube addons enable ingress`
 
-Auth ghcr (set pat to expire in 30 days). Kube 3pa [docs](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry) if needed.
-
-`kubectl create secret docker-registry regcred-ghcr --docker-server=https://ghcr.io --docker-username=<username> --docker-password=<pat> --docker-email=<email>` 
-
-Deploy to cluster.
+Deploy to minikube.
 
 `./deploy-minikube.sh`
 
-Cleanup cluster (pv will be released).
+Cleanup cluster (including pvc).
 
 `./delete-minikube.sh` 
 
