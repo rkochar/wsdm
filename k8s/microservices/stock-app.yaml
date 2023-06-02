@@ -29,8 +29,8 @@ spec:
     spec:
       containers:
         - name: stock
-          image: ghcr.io/rkochar/wsdm/stock:latest
-          imagePullPolicy: IfNotPresent
+          image: stock:latest
+          imagePullPolicy: Never
           resources:
             limits:
               memory: "1Gi"
