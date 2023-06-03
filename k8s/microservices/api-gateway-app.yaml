@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: stock-service
+  name: api-gateway-service
 spec:
   type: ClusterIP
   selector:
-    component: stock
+    component: api-gateway
   ports:
     - port: 5000
       name: http
@@ -16,20 +16,20 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: stock-deployment
+  name: api-gateway-deployment
 spec:
   replicas: 1
   selector:
     matchLabels:
-      component: stock
+      component: api-gateway
   template:
     metadata:
       labels:
-        component: stock
+        component: api-gateway
     spec:
       containers:
-        - name: stock
-          image: stock:latest
+        - name: api-gateway
+          image: api-gateway:latest
           imagePullPolicy: Never
           resources:
             limits:
@@ -47,12 +47,12 @@ spec:
 apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: stock-autoscaler
+  name: api-gateway-autoscaler
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: stock-deployment
+    name: api-gateway-deployment
   minReplicas: 1
   maxReplicas: 25
   targetCPUUtilizationPercentage: 50

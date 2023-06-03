@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-echo "Reset"
+echo "Local builder"
 eval $(minikube -p wsdm1 docker-env)
 
 

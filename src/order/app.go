@@ -307,6 +307,8 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: wait for response and return status
 	fmt.Println("TODO TODO TODO")
+	w.WriteHeader(http.StatusOK)
+	return
 }
 
 // Functions used only by kafka
