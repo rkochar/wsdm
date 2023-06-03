@@ -41,18 +41,18 @@ spec:
           ports:
             - containerPort: 5000
 
----
-
-
-apiVersion: autoscaling/v1
-kind: HorizontalPodAutoscaler
-metadata:
-  name: api-gateway-autoscaler
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: api-gateway-deployment
-  minReplicas: 1
-  maxReplicas: 25
-  targetCPUUtilizationPercentage: 50
+#---
+#
+#
+#apiVersion: autoscaling/v1
+#kind: HorizontalPodAutoscaler
+#metadata:
+#  name: api-gateway-autoscaler
+#spec:
+#  scaleTargetRef:
+#    apiVersion: apps/v1
+#    kind: Deployment
+#    name: api-gateway-deployment
+#  minReplicas: 1
+#  maxReplicas: 25
+#  targetCPUUtilizationPercentage: 50

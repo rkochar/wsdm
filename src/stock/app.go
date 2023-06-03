@@ -5,18 +5,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
 
-	"WDM-G1/shared"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"main/shared"
 )
 
 type ItemChange struct {
@@ -87,8 +87,8 @@ func main() {
 
 	var err error
 	// TODO: implement hash
-	// client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://stockdb-svc-0:27017"))
-	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://stockdb-svc-0:27017"))
+	//client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -233,7 +233,7 @@ func subtract(changes []ItemChange) (clientError error, serverError error) {
 			}
 			_, updateErr := stockCollection.UpdateOne(sessCtx, bson.M{"_id": change.itemID}, update)
 			if updateErr != nil {
-				// fmt.Printf("Update stock error: %s", updateErr)
+				log.Printf("Update stock error: %s", updateErr)
 				return nil, updateErr
 			}
 		}
@@ -260,11 +260,13 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 	amount := vars["amount"]
 	convIntErr, intAmount := shared.ConvertStringToInt(amount)
 	if convIntErr != nil {
+		log.Print(convIntErr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	convStringErr, documentID := shared.ConvertStringToMongoID(itemID)
 	if convStringErr != nil {
+		log.Print(convStringErr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -275,10 +277,12 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 	}})
 
 	if clientError != nil {
+		log.Print(clientError)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	if serverError != nil {
+		log.Print(serverError)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -293,9 +297,12 @@ func add(changes []ItemChange) (clientError error, serverError error) {
 					"stock": change.amount,
 				},
 			}
-			_, updateError := stockCollection.UpdateOne(sessCtx, filter, update)
-			if updateError != nil {
-				return nil, updateError
+
+			options := options.FindOneAndUpdate().SetUpsert(true)
+			result := stockCollection.FindOneAndUpdate(context.Background(), filter, update, options)
+			if result.Err() != nil {
+				log.Print(result.Err())
+				return nil, result.Err()
 			}
 		}
 		return nil, nil
@@ -304,6 +311,7 @@ func add(changes []ItemChange) (clientError error, serverError error) {
 	var session mongo.Session
 	session, serverError = client.StartSession()
 	if serverError != nil {
+		log.Print(serverError)
 		return
 	}
 

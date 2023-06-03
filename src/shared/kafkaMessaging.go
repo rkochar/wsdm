@@ -105,12 +105,12 @@ func SetUpKafkaListener(services []string, inLockMaster bool, action func(*SagaM
 }
 
 func CreateConnection(topic string, partition int) *kafka.Conn {
-	log.Print("CreateConnection")
 	log.Print("topic:", topic, "\npartition:", partition, "\nservice:", KAFKA_SERVICE)
 	conn, err := kafka.DialLeader(context.Background(), "tcp", KAFKA_SERVICE, topic, partition)
 	if err != nil {
 		log.Fatal("failed to dial leader:", err)
 	}
+	log.Print("Connected!")
 	return conn
 }
 

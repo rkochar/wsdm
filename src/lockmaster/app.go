@@ -1,7 +1,7 @@
 package main
 
 import (
-	"WDM-G1/shared"
+	"main/shared"
 )
 
 type Action struct {

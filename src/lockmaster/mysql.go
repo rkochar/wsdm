@@ -51,10 +51,10 @@ func (dbConn *MySQLConnection) init() {
 }
 
 func (dbConn *MySQLConnection) connectDB() error {
-	dbUser := "root"
-	dbPass := "password"
-	dbName := "saga_log"
-	dbHost := "localhost"
+	dbUser := "user"
+	dbPass := "pass"
+	dbName := "lockmaster"
+	dbHost := "lockmasterdb-service-0"
 	dbPort := 3306
 	connString := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true", dbUser, dbPass, dbHost, dbPort, dbName)
 

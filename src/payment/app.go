@@ -5,17 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
-	"WDM-G1/shared"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"main/shared"
 )
 
 type DoneResponse struct {
@@ -72,8 +72,8 @@ func main() {
 	defer cancel()
 
 	var err error
-	// client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://paymentdb-svc-0:27017"))
-	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://paymentdb-service-0:27017"))
+	//client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -90,6 +90,7 @@ func main() {
 	router.HandleFunc("/payment/add_funds/{user_id}/{amount}", addFundsHandler)
 	router.HandleFunc("/payment/create_user", createUserHandler)
 	router.HandleFunc("/payment/find_user/{user_id}", findUserHandler)
+	router.HandleFunc("/payment/", greetingHandler)
 
 	port := os.Getenv("PORT")
 	fmt.Printf("Current port is : %s\n", port)
@@ -101,6 +102,10 @@ func main() {
 	addr := fmt.Sprintf(":%s", port)
 	fmt.Printf("Starting payment service at %s\n", addr)
 	log.Fatal(http.ListenAndServe(addr, router))
+}
+
+func greetingHandler(w http.ResponseWriter, r *http.Request) {
+	log.Print("Hello welcome to paymnt!!")
 }
 
 func getUser(documentID *primitive.ObjectID) (error, *shared.User) {
@@ -199,20 +204,24 @@ func addFundsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func createUserHandler(w http.ResponseWriter, r *http.Request) {
+
 	user := shared.User{
 		Credit: 0.0,
 	}
 	result, insertionError := userCollection.InsertOne(context.Background(), user)
 	if insertionError != nil {
+		log.Print(insertionError)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
 	userID := result.InsertedID.(primitive.ObjectID).Hex()
 	user.UserID = userID
 
 	w.Header().Set("Content-Type", "application/json")
 	jsonError := json.NewEncoder(w).Encode(user)
 	if jsonError != nil {
+		log.Print(jsonError)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -224,12 +233,14 @@ func findUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	userIdConvErr, mongoUserID := shared.ConvertStringToMongoID(userID)
 	if userIdConvErr != nil {
+		log.Print(userIdConvErr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	userFindErr, user := getUser(mongoUserID)
 	if userFindErr != nil {
+		log.Print(userFindErr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -237,6 +248,7 @@ func findUserHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	jsonErr := json.NewEncoder(w).Encode(user)
 	if jsonErr != nil {
+		log.Print(jsonErr)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -252,6 +264,7 @@ func payHandler(w http.ResponseWriter, r *http.Request) {
 
 	userIdConvErr, mongoUserID := shared.ConvertStringToMongoID(userID)
 	if userIdConvErr != nil {
+		log.Print(userIdConvErr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
