@@ -11,8 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	"main/shared"
-
+	"WDM-G1/shared"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -87,8 +86,9 @@ func main() {
 	defer cancel()
 
 	var err error
-	//TODO: implement hash
-	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://stockdb-svc-0:27017"))
+	// TODO: implement hash
+	// client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://stockdb-svc-0:27017"))
+	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func getItem(documentID *primitive.ObjectID) (error, *shared.Item) {
 	if err != nil {
 		return err, nil
 	}
-	item.StockID = documentID.String()
+	item.ItemID = documentID.Hex()
 	return nil, &item
 }
 
@@ -130,7 +130,7 @@ func getItem(documentID *primitive.ObjectID) (error, *shared.Item) {
 func findHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	itemID := vars["item_id"]
-	fmt.Printf("item ID: %s", itemID)
+	// fmt.Printf("item ID: %s", itemID)
 
 	convertDocIDErr, documentID := shared.ConvertStringToMongoID(itemID)
 	if convertDocIDErr != nil {
@@ -139,7 +139,7 @@ func findHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("Find: %s\n", itemID)
+	// fmt.Printf("Find: %s\n", itemID)
 	findErr, item := getItem(documentID)
 	if findErr != nil {
 		fmt.Println("GET ITEM ERROR")
@@ -174,7 +174,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	stockID := result.InsertedID.(primitive.ObjectID).Hex()
 	// fmt.Printf("Created a new item with ID: %s\n", stockID)
-	stock.StockID = stockID
+	stock.ItemID = stockID
 
 	w.Header().Set("Content-Type", "application/json")
 	jsonEncodeErr := json.NewEncoder(w).Encode(stock)
@@ -231,7 +231,7 @@ func subtract(changes []ItemChange) (clientError error, serverError error) {
 					"stock": -change.amount,
 				},
 			}
-			_, updateErr := stockCollection.UpdateOne(context.Background(), bson.M{"_id": change.itemID}, update)
+			_, updateErr := stockCollection.UpdateOne(sessCtx, bson.M{"_id": change.itemID}, update)
 			if updateErr != nil {
 				// fmt.Printf("Update stock error: %s", updateErr)
 				return nil, updateErr
@@ -293,7 +293,7 @@ func add(changes []ItemChange) (clientError error, serverError error) {
 					"stock": change.amount,
 				},
 			}
-			_, updateError := stockCollection.UpdateOne(context.Background(), filter, update)
+			_, updateError := stockCollection.UpdateOne(sessCtx, filter, update)
 			if updateError != nil {
 				return nil, updateError
 			}

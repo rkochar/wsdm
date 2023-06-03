@@ -81,7 +81,7 @@ func SetUpKafkaListener(services []string, inLockMaster bool, action func(*SagaM
 
 						returnMessage, senderName := action(message)
 
-						if returnMessage == nil {
+						if returnMessage == nil || senderName == "" {
 							continue
 						}
 
@@ -115,16 +115,16 @@ func CreateConnection(topic string, partition int) *kafka.Conn {
 }
 
 func SendSagaMessage(message *SagaMessage, conn *kafka.Conn) error {
-	fmt.Println("message.Order:", message.Order)
 	jsonByteArray, marshalError := json.Marshal(message.Order)
 	if marshalError != nil {
 		return marshalError
 	}
 
 	messageBuffer := bytes.Buffer{}
-	messageBuffer.WriteString("START_CHECKOUT-SAGA_")
+	messageBuffer.WriteString(message.Name)
+	messageBuffer.WriteRune('_')
 	messageBuffer.WriteString(strconv.FormatInt(message.SagaID, 10))
-	messageBuffer.WriteString("_")
+	messageBuffer.WriteRune('_')
 	messageBuffer.Write(jsonByteArray)
 
 	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))

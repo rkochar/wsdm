@@ -160,12 +160,12 @@ func (dbConn *MySQLConnection) createSaga() (error, *int64) {
 	if insertedErr != nil {
 		return insertedErr, nil
 	}
-	fmt.Printf("SAGA: %d\n", insertedID)
+	// fmt.Printf("SAGA: %d\n", insertedID)
 	return nil, &insertedID
 }
 
 func (dbConn *MySQLConnection) insertSagaLog(sagaLog *SagaLog) error {
-	fmt.Println("Inserting SAGA log...")
+	// fmt.Println("Inserting SAGA log...")
 	query, prepareQueryErr := dbConn.db.Prepare("INSERT INTO messages (saga_id, message_type, message_event, saga_contents) VALUES (?, ?, ?, ?)")
 	if prepareQueryErr != nil {
 		fmt.Println("Prepare Query error!")
@@ -182,7 +182,7 @@ func (dbConn *MySQLConnection) insertSagaLog(sagaLog *SagaLog) error {
 }
 
 func (dbConn *MySQLConnection) getLatestSagaLog(sagaID int64) (error, *SagaLog) {
-	qString := "SELECT ID, saga_id, saga_contents, timestamp FROM sagas WHERE saga_id = ? ORDER BY timestamp DESC LIMIT 1"
+	qString := "SELECT ID, saga_id, message_type, message_event, saga_contents, timestamp FROM messages WHERE saga_id = ? ORDER BY timestamp DESC LIMIT 1"
 	query, prepareQueryErr := dbConn.db.Prepare(qString)
 	if prepareQueryErr != nil {
 		return prepareQueryErr, nil
@@ -190,15 +190,15 @@ func (dbConn *MySQLConnection) getLatestSagaLog(sagaID int64) (error, *SagaLog) 
 	defer query.Close()
 
 	var sagaLog SagaLog
-	queryErr := query.QueryRow(sagaID).Scan(&sagaLog.ID, &sagaLog.SagaID, &sagaLog.SagaContents, &sagaLog.Timestamp)
+	queryErr := query.QueryRow(sagaID).Scan(&sagaLog.ID, &sagaLog.SagaID, &sagaLog.MessageType, &sagaLog.MessageEvent, &sagaLog.SagaContents, &sagaLog.Timestamp)
 	if queryErr != nil {
 		return queryErr, nil
 	}
 
-	fmt.Println("Retrieved latest document:")
-	fmt.Println("Saga ID:", sagaLog.SagaID)
-	fmt.Println("Saga Contents:", sagaLog.SagaContents)
-	fmt.Println("Timestamp:", sagaLog.Timestamp)
+	// fmt.Println("Retrieved latest document:")
+	// fmt.Println("Saga ID:", sagaLog.SagaID)
+	// fmt.Println("Saga Contents:", sagaLog.SagaContents)
+	// fmt.Println("Timestamp:", sagaLog.Timestamp)
 	return nil, &sagaLog
 }
 
@@ -232,7 +232,7 @@ func (dbConn *MySQLConnection) printAllSAGALogs() error {
 
 	for rows.Next() {
 		var sagaLog SagaLog
-		err := rows.Scan(&sagaLog.ID, &sagaLog.SagaID, &sagaLog.SagaContents, &sagaLog.Timestamp)
+		err := rows.Scan(&sagaLog.ID, &sagaLog.SagaID, &sagaLog.MessageType, &sagaLog.MessageEvent, &sagaLog.SagaContents, &sagaLog.Timestamp)
 		if err != nil {
 			return err
 		}

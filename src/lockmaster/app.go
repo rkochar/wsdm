@@ -1,9 +1,7 @@
 package main
 
 import (
-	"fmt"
-
-	"main/shared"
+	"WDM-G1/shared"
 )
 
 type Action struct {
@@ -14,7 +12,7 @@ type Action struct {
 // Maps incoming message to outgoing message
 var successfulActionMap = map[string]Action{
 	// Normal checkout
-	"START-CHECKOUT-SAGA": {"START-SUBTRACT-STOCK", "order-syn"},
+	"START-CHECKOUT-SAGA": {"START-SUBTRACT-STOCK", "stock-syn"},
 	"END-SUBTRACT-STOCK":  {"START-MAKE-PAYMENT", "payment-syn"},
 	"END-MAKE-PAYMENT":    {"START-UPDATE-ORDER", "order-syn"},
 	"END-UPDATE-ORDER":    {"END-CHECKOUT-SAGA", ""},
@@ -53,7 +51,6 @@ func main() {
 				nextAction, messageResponseAvailable = failActionMap[previousMessage.Name]
 			} else {
 				nextAction, messageResponseAvailable = successfulActionMap[message.Name]
-				fmt.Printf("Next action topic: %s next message: %s", nextAction.topic, nextAction.nextMessage)
 			}
 
 			if !messageResponseAvailable {

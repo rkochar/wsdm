@@ -10,12 +10,12 @@ import (
 	"os"
 	"time"
 
+	"WDM-G1/shared"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"main/shared"
 )
 
 type DoneResponse struct {
@@ -40,7 +40,6 @@ func main() {
 			// TODO: remove code duplication
 
 			if message.Name == "START-MAKE-PAYMENT" {
-				fmt.Printf("STARTING PAYMENT!\n")
 				// ignore error, wil not happen
 				_, mongoUserID := shared.ConvertStringToMongoID(message.Order.UserID)
 				_, mongoOrderID := shared.ConvertStringToMongoID(message.Order.OrderID)
@@ -73,8 +72,8 @@ func main() {
 	defer cancel()
 
 	var err error
-	//TODO: implement hash
-	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://paymentdb-svc-0:27017"))
+	// client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://paymentdb-svc-0:27017"))
+	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -93,7 +92,7 @@ func main() {
 	router.HandleFunc("/payment/find_user/{user_id}", findUserHandler)
 
 	port := os.Getenv("PORT")
-	fmt.Printf("Current port is: %s\n", port)
+	fmt.Printf("Current port is : %s\n", port)
 	if port == "" {
 		port = "8081"
 	}
@@ -110,7 +109,7 @@ func getUser(documentID *primitive.ObjectID) (error, *shared.User) {
 	if err != nil {
 		return err, nil
 	}
-	user.UserID = documentID.String()
+	user.UserID = documentID.Hex()
 	return nil, &user
 }
 
@@ -297,18 +296,18 @@ func pay(userID *primitive.ObjectID, orderID *primitive.ObjectID, amount *float6
 				"credit": -*amount,
 			},
 		}
-		_, userUpdateError := userCollection.UpdateOne(context.Background(), userFilter, userUpdate)
+		_, userUpdateError := userCollection.UpdateOne(sessCtx, userFilter, userUpdate)
 		if userUpdateError != nil {
 			return nil, userUpdateError
 		}
 
 		payment := shared.Payment{
-			UserID:  userID.String(),
-			OrderID: orderID.String(),
+			UserID:  userID.Hex(),
+			OrderID: orderID.Hex(),
 			Amount:  *amount,
 			Paid:    true,
 		}
-		_, insertErr := paymentCollection.InsertOne(context.Background(), payment)
+		_, insertErr := paymentCollection.InsertOne(sessCtx, payment)
 		if insertErr != nil {
 			return nil, insertErr
 		}
@@ -375,7 +374,7 @@ func cancelPayment(userID *primitive.ObjectID, orderID *primitive.ObjectID) (cli
 				"credit": payment.Amount,
 			},
 		}
-		_, userUpdateError := userCollection.UpdateOne(context.Background(), userFilter, userUpdate)
+		_, userUpdateError := userCollection.UpdateOne(sessCtx, userFilter, userUpdate)
 		if userUpdateError != nil {
 			return nil, userUpdateError
 		}
@@ -389,7 +388,7 @@ func cancelPayment(userID *primitive.ObjectID, orderID *primitive.ObjectID) (cli
 				"paid": false,
 			},
 		}
-		_, paymentUpdateErr := paymentCollection.UpdateOne(context.Background(), paymentFilter, paymentUpdate)
+		_, paymentUpdateErr := paymentCollection.UpdateOne(sessCtx, paymentFilter, paymentUpdate)
 		if paymentUpdateErr != nil {
 			return nil, paymentUpdateErr
 		}
