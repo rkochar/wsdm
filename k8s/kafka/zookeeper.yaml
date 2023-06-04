@@ -1,25 +1,7 @@
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: zookeeper-service
-  labels:
-    app: zookeeper-service
-  namespace: kafka
-spec:
-  selector:
-    app: zookeeper
-  ports:
-    - protocol: TCP
-      port: 2181
-      targetPort: 2181
-
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: zookeeper
-  namespace: kafka
+  name: zookeeper-deployment
   labels:
     app: zookeeper
 spec:
@@ -33,9 +15,8 @@ spec:
         app: zookeeper
     spec:
       containers:
-        - image: zookeeper:3.8
-          imagePullPolicy: IfNotPresent
-          name: zookeeper
+        - name: zookeeper
+          image: confluentinc/cp-zookeeper:7.0.1
           ports:
             - containerPort: 2181
           env:
@@ -43,3 +24,15 @@ spec:
               value: "2181"
             - name: ZOOKEEPER_TICK_TIME
               value: "2000"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper-service
+spec:
+  selector:
+    app: zookeeper
+  ports:
+    - protocol: TCP
+      port: 2181
+      targetPort: 2181

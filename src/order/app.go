@@ -20,7 +20,7 @@ import (
 var client *mongo.Client
 var ordersCollection *mongo.Collection
 
-const parititon = 1
+const parititon = 0
 
 func main() {
 	go shared.SetUpKafkaListener(
@@ -242,7 +242,7 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: use kafka
 
-	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://stockdb-service-0:5000/find/%s", mongoItemID.Hex()))
+	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://stock-service:5000/find/%s", mongoItemID.Hex()))
 	if getStockErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -282,7 +282,7 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
-
+	log.Println("Starting checkout saga for order", orderID)
 	convertOrderIDErr, mongoOrderID := shared.ConvertStringToMongoID(orderID)
 	if convertOrderIDErr != nil {
 		log.Println("Convert String to Mongo ID error")
@@ -292,14 +292,13 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	getOrderErr, order := getOrder(mongoOrderID)
 	order.OrderID = orderID
-	// fmt.Println("Order ID", orderID, order.OrderID)
 	if getOrderErr != nil {
 		log.Println("Get order error")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	sender := shared.CreateConnection("order-ack", parititon)
+	sender := shared.CreateTopicSender("order-ack")
 	defer sender.Close()
 
 	message := shared.SagaMessage{
@@ -307,6 +306,7 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 		SagaID: -1,
 		Order:  *order,
 	}
+	log.Println("Sending message to kafka", message)
 	// message.Order.OrderID = orderID
 
 	sendErr := shared.SendSagaMessage(&message, sender)
@@ -314,9 +314,10 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println("Send Kafka SAGA message error")
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+	w.WriteHeader(http.StatusOK)
 
 	// TODO: wait for response and return status
-	log.Println("TODO TODO TODO")
+	//log.Println("TODO TODO TODO")
 }
 
 // Functions used only by kafka
