@@ -9,6 +9,13 @@ spec:
  rules:
    - http:
       paths:
+#        - path: /orders/checkout/?(.*)
+#          pathType: Prefix
+#          backend:
+#            service:
+#              name: api-gateway-service-0
+#              port:
+#                number: 27017
         - path: /orders/?(.*)
           pathType: Prefix
           backend:
