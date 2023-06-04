@@ -283,9 +283,12 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
 	log.Println("Starting checkout saga for order", orderID)
+	statusCallback := http.StatusOK
 	convertOrderIDErr, mongoOrderID := shared.ConvertStringToMongoID(orderID)
 	if convertOrderIDErr != nil {
 		log.Println("Convert String to Mongo ID error")
+		log.Printf("statusCallback is: %d", statusCallback)
+		statusCallback = shared.RouteCheckoutCall(orderID, http.StatusBadRequest)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -293,6 +296,8 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	getOrderErr, order := getOrder(mongoOrderID)
 	order.OrderID = orderID
 	if getOrderErr != nil {
+		statusCallback = shared.RouteCheckoutCall(orderID, http.StatusBadRequest)
+		log.Printf("statusCallback is: %d", statusCallback)
 		log.Println("Get order error")
 		w.WriteHeader(http.StatusBadRequest)
 		return

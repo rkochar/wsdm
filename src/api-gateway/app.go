@@ -36,7 +36,7 @@ func main() {
 
 	// Set the listening address and port for the server
 	addr := fmt.Sprintf(":%s", port)
-	fmt.Printf("\nStarting order service at %s", addr)
+	fmt.Printf("\nStarting api gateway service at %s", addr)
 	log.Fatal(http.ListenAndServe(addr, router))
 
 }
@@ -78,7 +78,7 @@ func unblockCheckout(w http.ResponseWriter, r *http.Request) {
 	status, err := strconv.Atoi(vars["status"])
 	log.Printf("\nTrying to unlock order: %s with status %d", orderID, status)
 	if err != nil {
-		fmt.Println("Failed to convert string to integer:", err, orderID)
+		fmt.Println("Failed to convert string to integer:", err, orderID, vars["status"])
 		releaseChannel(orderID, http.StatusBadRequest)
 		return
 	}

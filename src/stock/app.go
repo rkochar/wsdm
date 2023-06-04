@@ -221,42 +221,42 @@ func subtractHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func subtract(changes []ItemChange) (clientError error, serverError error) {
-	callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
-		for _, change := range changes {
-			getItemErr, item := getItem(change.itemID)
-			if getItemErr != nil {
-				return nil, getItemErr
-			}
-			if item.Stock < change.amount {
-				return nil, errors.New("not enough stock to subtract")
-			}
-			update := bson.M{
-				"$inc": bson.M{
-					"stock": -change.amount,
-				},
-			}
-			//_, updateErr := stockCollection.UpdateOne(sessCtx, bson.M{"_id": change.itemID}, update)
-			result := shared.UpdateRecord(sessCtx, stockCollection, bson.M{"_id": change.itemID}, update)
-			if result.Err() != nil {
-				log.Printf("Update stock error: %s", result.Err())
-				return nil, result.Err()
-			}
+	//callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
+	for _, change := range changes {
+		getItemErr, item := getItem(change.itemID)
+		if getItemErr != nil {
+			return nil, getItemErr
 		}
-		return nil, nil
+		if item.Stock < change.amount {
+			return nil, errors.New("not enough stock to subtract")
+		}
+		update := bson.M{
+			"$inc": bson.M{
+				"stock": -change.amount,
+			},
+		}
+		//_, updateErr := stockCollection.UpdateOne(sessCtx, bson.M{"_id": change.itemID}, update)
+		result := shared.UpdateRecord(context.Background(), stockCollection, bson.M{"_id": change.itemID}, update)
+		if result.Err() != nil {
+			log.Printf("Update stock error: %s", result.Err())
+			return nil, result.Err()
+		}
 	}
+	return nil, nil
+	//}
 
-	var session mongo.Session
-	session, serverError = client.StartSession()
-	if serverError != nil {
-		return
-	}
+	//var session mongo.Session
+	//session, serverError = client.StartSession()
+	//if serverError != nil {
+	//	return
+	//}
 
-	ctx := context.Background()
-	defer session.EndSession(ctx)
-
-	_, clientError = session.WithTransaction(ctx, callback)
-
-	return
+	//ctx := context.Background()
+	//defer session.EndSession(ctx)
+	//
+	//_, clientError = session.WithTransaction(ctx, callback)
+	//
+	//return
 }
 
 func addHandler(w http.ResponseWriter, r *http.Request) {
@@ -294,35 +294,35 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func add(changes []ItemChange) (clientError error, serverError error) {
-	callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
-		for _, change := range changes {
-			filter := bson.M{"_id": change.itemID}
-			update := bson.M{
-				"$inc": bson.M{
-					"stock": change.amount,
-				},
-			}
-
-			result := shared.UpdateRecord(sessCtx, stockCollection, filter, update)
-			if result.Err() != nil {
-				log.Print(result.Err())
-				return nil, result.Err()
-			}
+	//callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
+	for _, change := range changes {
+		filter := bson.M{"_id": change.itemID}
+		update := bson.M{
+			"$inc": bson.M{
+				"stock": change.amount,
+			},
 		}
-		return nil, nil
+
+		result := shared.UpdateRecord(context.Background(), stockCollection, filter, update)
+		if result.Err() != nil {
+			log.Print(result.Err())
+			return nil, result.Err()
+		}
 	}
+	return nil, nil
+	//}
 
-	var session mongo.Session
-	session, serverError = client.StartSession()
-	if serverError != nil {
-		log.Print(serverError)
-		return
-	}
-
-	ctx := context.Background()
-	defer session.EndSession(ctx)
-
-	_, clientError = session.WithTransaction(ctx, callback)
-
-	return
+	//var session mongo.Session
+	//session, serverError = client.StartSession()
+	//if serverError != nil {
+	//	log.Print(serverError)
+	//	return
+	//}
+	//
+	//ctx := context.Background()
+	//defer session.EndSession(ctx)
+	//
+	//_, clientError = session.WithTransaction(ctx, callback)
+	//
+	//return
 }

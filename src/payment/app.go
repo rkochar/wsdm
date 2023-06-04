@@ -46,6 +46,7 @@ func main() {
 
 				clientError, serverError := pay(mongoUserID, mongoOrderID, &message.Order.TotalCost)
 				if clientError != nil || serverError != nil {
+					log.Print(clientError, serverError)
 					returnMessage.Name = "ABORT-CHECKOUT-SAGA"
 				}
 				return returnMessage, "payment-ack"
@@ -283,65 +284,69 @@ func payHandler(w http.ResponseWriter, r *http.Request) {
 	clientError, serverError := pay(mongoUserID, mongoOrderID, amountFloat)
 
 	if clientError != nil {
+		log.Print(clientError)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	if serverError != nil {
+		log.Print(serverError)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
 
 func pay(userID *primitive.ObjectID, orderID *primitive.ObjectID, amount *float64) (clientError error, serverError error) {
-	callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
-		getuserErr, user := getUser(userID)
-		if getuserErr != nil {
-			return nil, getuserErr
-		}
-		if user.Credit < *amount {
-			return nil, errors.New("not enough credits to pay")
-		}
-
-		userFilter := bson.M{
-			"_id": userID,
-		}
-		userUpdate := bson.M{
-			"$inc": bson.M{
-				"credit": -*amount,
-			},
-		}
-		//_, userUpdateError := userCollection.UpdateOne(sessCtx, userFilter, userUpdate)
-		result := shared.UpdateRecord(sessCtx, userCollection, userFilter, userUpdate)
-		if result.Err() != nil {
-			return nil, result.Err()
-		}
-
-		payment := shared.Payment{
-			UserID:  userID.Hex(),
-			OrderID: orderID.Hex(),
-			Amount:  *amount,
-			Paid:    true,
-		}
-		_, insertErr := paymentCollection.InsertOne(sessCtx, payment)
-		if insertErr != nil {
-			return nil, insertErr
-		}
-
-		return nil, nil
+	//callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
+	getuserErr, user := getUser(userID)
+	if getuserErr != nil {
+		log.Print("user not found")
+		return nil, getuserErr
+	}
+	if user.Credit < *amount {
+		log.Print("not enough credits to pay")
+		return nil, errors.New("not enough credits to pay")
 	}
 
-	var session mongo.Session
-	session, serverError = client.StartSession()
-	if serverError != nil {
-		return
+	userFilter := bson.M{
+		"_id": userID,
+	}
+	userUpdate := bson.M{
+		"$inc": bson.M{
+			"credit": -*amount,
+		},
+	}
+	//_, userUpdateError := userCollection.UpdateOne(sessCtx, userFilter, userUpdate)
+	result := shared.UpdateRecord(context.Background(), userCollection, userFilter, userUpdate)
+	if result.Err() != nil {
+		return nil, result.Err()
 	}
 
-	ctx := context.Background()
-	defer session.EndSession(ctx)
+	payment := shared.Payment{
+		UserID:  userID.Hex(),
+		OrderID: orderID.Hex(),
+		Amount:  *amount,
+		Paid:    true,
+	}
+	_, insertErr := paymentCollection.InsertOne(context.Background(), payment)
+	if insertErr != nil {
+		return nil, insertErr
+	}
 
-	_, clientError = session.WithTransaction(ctx, callback)
+	return nil, nil
+	//}
 
-	return
+	//var session mongo.Session
+	//session, serverError = client.StartSession()
+	//if serverError != nil {
+	//	return
+	//}
+	//
+	//ctx := context.Background()
+	//defer session.EndSession(ctx)
+	//
+	//_, clientError = session.WithTransaction(ctx, callback)
+	//
+	//return
 }
 
 func cancelPaymentHandler(w http.ResponseWriter, r *http.Request) {
@@ -375,53 +380,53 @@ func cancelPaymentHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func cancelPayment(userID *primitive.ObjectID, orderID *primitive.ObjectID) (clientError error, serverError error) {
-	callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
-		getPaymentErr, payment := getPayment(userID, orderID)
-		if getPaymentErr != nil {
-			return nil, getPaymentErr
-		}
-
-		userFilter := bson.M{
-			"_id": userID,
-		}
-		userUpdate := bson.M{
-			"$inc": bson.M{
-				"credit": payment.Amount,
-			},
-		}
-		//_, userUpdateError := userCollection.UpdateOne(sessCtx, userFilter, userUpdate)
-		result := shared.UpdateRecord(sessCtx, userCollection, userFilter, userUpdate)
-		if result.Err() != nil {
-			return nil, result.Err()
-		}
-
-		paymentFilter := bson.M{
-			"userid":  userID,
-			"orderid": orderID,
-		}
-		paymentUpdate := bson.M{
-			"$set": bson.M{
-				"paid": false,
-			},
-		}
-		//_, paymentUpdateErr := paymentCollection.UpdateOne(sessCtx, paymentFilter, paymentUpdate)
-		result = shared.UpdateRecord(sessCtx, paymentCollection, paymentFilter, paymentUpdate)
-		if result.Err() != nil {
-			return nil, result.Err()
-		}
-		return nil, nil
+	//callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
+	getPaymentErr, payment := getPayment(userID, orderID)
+	if getPaymentErr != nil {
+		return nil, getPaymentErr
 	}
 
-	var session mongo.Session
-	session, serverError = client.StartSession()
-	if serverError != nil {
-		return
+	userFilter := bson.M{
+		"_id": userID,
+	}
+	userUpdate := bson.M{
+		"$inc": bson.M{
+			"credit": payment.Amount,
+		},
+	}
+	//_, userUpdateError := userCollection.UpdateOne(sessCtx, userFilter, userUpdate)
+	result := shared.UpdateRecord(context.Background(), userCollection, userFilter, userUpdate)
+	if result.Err() != nil {
+		return nil, result.Err()
 	}
 
-	ctx := context.Background()
-	defer session.EndSession(ctx)
+	paymentFilter := bson.M{
+		"userid":  userID,
+		"orderid": orderID,
+	}
+	paymentUpdate := bson.M{
+		"$set": bson.M{
+			"paid": false,
+		},
+	}
+	//_, paymentUpdateErr := paymentCollection.UpdateOne(sessCtx, paymentFilter, paymentUpdate)
+	result = shared.UpdateRecord(context.Background(), paymentCollection, paymentFilter, paymentUpdate)
+	if result.Err() != nil {
+		return nil, result.Err()
+	}
+	return nil, nil
+	//}
 
-	_, clientError = session.WithTransaction(ctx, callback)
+	//var session mongo.Session
+	//session, serverError = client.StartSession()
+	//if serverError != nil {
+	//	return
+	//}
+	//
+	//ctx := context.Background()
+	//defer session.EndSession(ctx)
+	//
+	//_, clientError = session.WithTransaction(ctx, callback)
 
 	return
 }
