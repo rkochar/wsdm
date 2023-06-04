@@ -11,7 +11,7 @@ type Action struct {
 	topic       string
 }
 
-const API_GATEWAY = "http://api-gateway-service-0:27017/"
+const API_GATEWAY = "http://api-gateway-service-0:5000"
 
 // Maps incoming message to outgoing message
 var successfulActionMap = map[string]Action{

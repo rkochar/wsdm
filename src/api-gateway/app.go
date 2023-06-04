@@ -17,7 +17,7 @@ var channelMap = make(map[string]chan int)
 // Create a mutex for synchronization
 var mutex sync.Mutex
 
-const ORDER_SERVICE = "http://order-service:5002/orders/checkout/"
+const ORDER_SERVICE = "http://order-service:5000/orders/checkout/"
 const TIMEOUT_SECONDS = 30
 
 func main() {
