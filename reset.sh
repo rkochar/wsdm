@@ -2,12 +2,12 @@
 
 
 echo "Local builder"
-eval $(minikube -p wsdm1 docker-env)
+eval $(minikube -p wsdm2 docker-env)
 
 
-docker build . --build-arg SERVICE=stock -t stock:latest
-echo "Deleting stock"
-kubectl delete -f k8s/microservices/stock-app.yaml
+docker build . --build-arg SERVICE=order -t order:latest
+echo "Deleting order"
+kubectl delete -f k8s/microservices/order-app.yaml
 
-echo "Deleting stock"
-kubectl apply -f k8s/microservices/stock-app.yaml
+echo "Deleting order"
+kubectl apply -f k8s/microservices/order-app.yaml

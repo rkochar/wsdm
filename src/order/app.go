@@ -173,6 +173,8 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 	orderID := vars["order_id"]
 	itemID := vars["item_id"]
 
+	log.Printf("Adding item %s to order %s", itemID, orderID)
+
 	// fmt.Printf("Adding item %s to order %s", itemID, orderID)
 	convertItemIDErr, mongoItemID := shared.ConvertStringToMongoID(itemID)
 	if convertItemIDErr != nil {
@@ -183,9 +185,9 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: use kafka
 
-	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://stockdb-service-0:5000/stock/find/%s", mongoItemID.Hex()))
-	// fmt.Printf("response: %s", getStockResponse.StatusCode)
-	// fmt.Printf("get stock err: %s", getStockErr)
+	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://stock-service:5000/stock/find/%s", mongoItemID.Hex()))
+	log.Printf("response: %s", getStockResponse.StatusCode)
+	log.Printf("get stock err: %s", getStockErr)
 	if getStockErr != nil {
 		log.Print(getStockResponse)
 		w.WriteHeader(http.StatusBadRequest)
@@ -195,6 +197,7 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 
 	var item shared.Item
 	jsonDecodeErr := json.NewDecoder(getStockResponse.Body).Decode(&item)
+	log.Printf("json body err: %s", item)
 	if jsonDecodeErr != nil {
 		log.Print(jsonDecodeErr)
 		w.WriteHeader(http.StatusBadRequest)
@@ -217,8 +220,10 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 			"totalcost": item.Price,
 		},
 	}
-	_, addItemErr := ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
-	if addItemErr != nil {
+	//_, addItemErr := ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
+	result := shared.UpdateRecord(context.Background(), ordersCollection, orderFilter, orderUpdate)
+	if result.Err() != nil {
+		log.Print(result.Err())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -266,8 +271,9 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 			"totalcost": -item.Price,
 		},
 	}
-	_, removeItemErr := ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
-	if removeItemErr != nil {
+	//_, removeItemErr := ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
+	result := shared.UpdateRecord(context.Background(), ordersCollection, orderFilter, orderUpdate)
+	if result.Err() != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -279,7 +285,7 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	convertOrderIDErr, mongoOrderID := shared.ConvertStringToMongoID(orderID)
 	if convertOrderIDErr != nil {
-		fmt.Println("Convert String to Mongo ID error")
+		log.Println("Convert String to Mongo ID error")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -288,7 +294,7 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	order.OrderID = orderID
 	// fmt.Println("Order ID", orderID, order.OrderID)
 	if getOrderErr != nil {
-		fmt.Println("Get order error")
+		log.Println("Get order error")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -305,12 +311,12 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	sendErr := shared.SendSagaMessage(&message, sender)
 	if sendErr != nil {
-		fmt.Println("Send Kafka SAGA message error")
+		log.Println("Send Kafka SAGA message error")
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
 	// TODO: wait for response and return status
-	fmt.Println("TODO TODO TODO")
+	log.Println("TODO TODO TODO")
 }
 
 // Functions used only by kafka
@@ -322,8 +328,12 @@ func updateOrder(orderID *primitive.ObjectID, status bool) (clientError error, s
 			"paid": status,
 		},
 	}
-
-	_, clientError = ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
+	//_, clientError = ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
+	result := shared.UpdateRecord(context.Background(), ordersCollection, orderFilter, orderUpdate)
+	if result.Err() != nil {
+		log.Print(result.Err())
+		return nil, result.Err()
+	}
 
 	return
 }

@@ -87,7 +87,7 @@ func main() {
 
 	var err error
 	// TODO: implement hash
-	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://stockdb-svc-0:27017"))
+	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://stockdb-service-0:27017"))
 	//client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
 	if err != nil {
 		log.Fatal(err)
@@ -159,6 +159,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	price := vars["price"]
 	priceFloat, err := strconv.ParseFloat(price, 64)
 	if err != nil {
+		fmt.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -167,8 +168,10 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		Stock: 0,
 		Price: priceFloat,
 	}
+
 	result, insertErr := stockCollection.InsertOne(context.Background(), stock)
 	if insertErr != nil {
+		fmt.Println(insertErr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -179,6 +182,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	jsonEncodeErr := json.NewEncoder(w).Encode(stock)
 	if jsonEncodeErr != nil {
+		fmt.Println(jsonEncodeErr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -231,10 +235,11 @@ func subtract(changes []ItemChange) (clientError error, serverError error) {
 					"stock": -change.amount,
 				},
 			}
-			_, updateErr := stockCollection.UpdateOne(sessCtx, bson.M{"_id": change.itemID}, update)
-			if updateErr != nil {
-				log.Printf("Update stock error: %s", updateErr)
-				return nil, updateErr
+			//_, updateErr := stockCollection.UpdateOne(sessCtx, bson.M{"_id": change.itemID}, update)
+			result := shared.UpdateRecord(sessCtx, stockCollection, bson.M{"_id": change.itemID}, update)
+			if result.Err() != nil {
+				log.Printf("Update stock error: %s", result.Err())
+				return nil, result.Err()
 			}
 		}
 		return nil, nil
@@ -298,8 +303,7 @@ func add(changes []ItemChange) (clientError error, serverError error) {
 				},
 			}
 
-			options := options.FindOneAndUpdate().SetUpsert(true)
-			result := stockCollection.FindOneAndUpdate(context.Background(), filter, update, options)
+			result := shared.UpdateRecord(sessCtx, stockCollection, filter, update)
 			if result.Err() != nil {
 				log.Print(result.Err())
 				return nil, result.Err()

@@ -1,13 +1,17 @@
 package main
 
 import (
+	"log"
 	"main/shared"
+	"net/http"
 )
 
 type Action struct {
 	nextMessage string
 	topic       string
 }
+
+const API_GATEWAY = "http://api-gateway-service-0:27017/"
 
 // Maps incoming message to outgoing message
 var successfulActionMap = map[string]Action{
@@ -43,15 +47,22 @@ func main() {
 
 			var nextAction Action
 			var messageResponseAvailable bool
+			statusCallback := http.StatusOK
 
 			if message.Name == "ABORT-CHECKOUT-SAGA" {
 				_, previousLog := dbConn.getLatestSagaLog(message.SagaID)
 				_, previousMessage := sagaLogToSagaMessage(previousLog)
 
 				nextAction, messageResponseAvailable = failActionMap[previousMessage.Name]
+				statusCallback = routeCheckoutCall(message.Order.OrderID, http.StatusBadRequest)
 			} else {
 				nextAction, messageResponseAvailable = successfulActionMap[message.Name]
+				if nextAction.nextMessage == "END-CHECKOUT-SAGA" {
+					statusCallback = routeCheckoutCall(message.Order.OrderID, http.StatusOK)
+				}
 			}
+
+			log.Print(message.Order.OrderID, http.StatusBadRequest, statusCallback)
 
 			if !messageResponseAvailable {
 				return nil, ""
@@ -77,4 +88,15 @@ func main() {
 			return &outMessage, nextAction.topic
 		},
 	)
+}
+
+func routeCheckoutCall(orderID string, status int) int {
+
+	backendURL := API_GATEWAY + orderID + "/" + string(status)
+	resp, err := http.Get(backendURL)
+	if err != nil {
+		log.Printf("\nFailed to make service call: %v", err)
+		return http.StatusBadRequest
+	}
+	return resp.StatusCode
 }

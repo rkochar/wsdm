@@ -16,4 +16,4 @@ echo "Deploying lockmaster"
 kubectl apply -f ./k8s/microservices/lockmaster-app.yaml
 
 echo "Deploying API Gateway"
-kubectl apply -f ./k8s/microservices/api-gateway-app.yaml
+./k8s/microservices/api-gateway/deploy-api-gateway.sh

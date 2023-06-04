@@ -14,3 +14,6 @@ kubectl delete -f ./k8s/microservices/ingress-service.yaml
 
 echo "Deleting lockmaster"
 kubectl delete -f ./k8s/microservices/lockmaster-app.yaml
+
+echo "Deleting API Gateway"
+./k8s/microservices/api-gateway/delete-api-gateway.sh

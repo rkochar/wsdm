@@ -31,7 +31,7 @@ spec:
         - name: payment
 
           image: payment:latest
-          imagePullPolicy: Never
+          imagePullPolicy: IfNotPresent
           resources:
             limits:
               memory: "1Gi"

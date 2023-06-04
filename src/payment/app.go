@@ -187,9 +187,10 @@ func addFundsHandler(w http.ResponseWriter, r *http.Request) {
 			"credit": amountFloat,
 		},
 	}
-	_, updateErr := userCollection.UpdateOne(context.Background(), filter, update)
+	//_, updateErr := userCollection.UpdateOne(context.Background(), filter, update)
+	result := shared.UpdateRecord(context.Background(), userCollection, filter, update)
 	response := DoneResponse{}
-	if updateErr != nil {
+	if result.Err() != nil {
 		response.Done = false
 	} else {
 		response.Done = true
@@ -309,9 +310,10 @@ func pay(userID *primitive.ObjectID, orderID *primitive.ObjectID, amount *float6
 				"credit": -*amount,
 			},
 		}
-		_, userUpdateError := userCollection.UpdateOne(sessCtx, userFilter, userUpdate)
-		if userUpdateError != nil {
-			return nil, userUpdateError
+		//_, userUpdateError := userCollection.UpdateOne(sessCtx, userFilter, userUpdate)
+		result := shared.UpdateRecord(sessCtx, userCollection, userFilter, userUpdate)
+		if result.Err() != nil {
+			return nil, result.Err()
 		}
 
 		payment := shared.Payment{
@@ -387,9 +389,10 @@ func cancelPayment(userID *primitive.ObjectID, orderID *primitive.ObjectID) (cli
 				"credit": payment.Amount,
 			},
 		}
-		_, userUpdateError := userCollection.UpdateOne(sessCtx, userFilter, userUpdate)
-		if userUpdateError != nil {
-			return nil, userUpdateError
+		//_, userUpdateError := userCollection.UpdateOne(sessCtx, userFilter, userUpdate)
+		result := shared.UpdateRecord(sessCtx, userCollection, userFilter, userUpdate)
+		if result.Err() != nil {
+			return nil, result.Err()
 		}
 
 		paymentFilter := bson.M{
@@ -401,11 +404,11 @@ func cancelPayment(userID *primitive.ObjectID, orderID *primitive.ObjectID) (cli
 				"paid": false,
 			},
 		}
-		_, paymentUpdateErr := paymentCollection.UpdateOne(sessCtx, paymentFilter, paymentUpdate)
-		if paymentUpdateErr != nil {
-			return nil, paymentUpdateErr
+		//_, paymentUpdateErr := paymentCollection.UpdateOne(sessCtx, paymentFilter, paymentUpdate)
+		result = shared.UpdateRecord(sessCtx, paymentCollection, paymentFilter, paymentUpdate)
+		if result.Err() != nil {
+			return nil, result.Err()
 		}
-
 		return nil, nil
 	}
 

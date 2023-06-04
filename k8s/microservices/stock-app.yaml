@@ -30,7 +30,7 @@ spec:
       containers:
         - name: stock
           image: stock:latest
-          imagePullPolicy: Never
+          imagePullPolicy: IfNotPresent
           resources:
             limits:
               memory: "1Gi"
