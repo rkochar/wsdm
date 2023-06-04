@@ -40,7 +40,6 @@ func main() {
 
 				for i, stringID := range message.Order.Items {
 					// ignore error, will not happen
-					//_, itemID := shared.ConvertStringToMongoID(stringID)
 					_, itemID := shared.ConvertStringToUUID(stringID)
 
 					changes[i] = ItemChange{
@@ -62,7 +61,6 @@ func main() {
 
 				for i, stringID := range message.Order.Items {
 					// ignore error, will not happen
-					//_, itemID := shared.ConvertStringToMongoID(stringID)
 					_, itemID := shared.ConvertStringToUUID(stringID)
 
 					changes[i] = ItemChange{
@@ -131,21 +129,15 @@ func setupDBConnections(ctx context.Context) error {
 }
 
 func getItem(documentID *uuid.UUID) (error, *shared.Item) {
-	var item shared.Item
 	databaseNum := shared.HashUUID(*documentID)
 
-	//mongoConvErr, mongoDocID := shared.ConvertStringToMongoID(documentID.String())
-	//if mongoConvErr != nil {
-	//	return mongoConvErr, nil
-	//}
-
+	var item shared.Item
 	err := collections[databaseNum].FindOne(context.Background(), bson.M{"_id": documentID}).Decode(&item)
 	if err != nil {
 		return err, nil
 	}
 	item.ID = *documentID
 	item.ItemID = documentID.String()
-	//item.ItemID = documentID.Hex()
 	return nil, &item
 }
 
@@ -156,7 +148,6 @@ func findHandler(w http.ResponseWriter, r *http.Request) {
 	itemID := vars["item_id"]
 	// fmt.Printf("item ID: %s", itemID)
 
-	//convertDocIDErr, documentID := shared.ConvertStringToMongoID(itemID)
 	convertDocIDErr, documentID := shared.ConvertStringToUUID(itemID)
 	if convertDocIDErr != nil {
 		fmt.Println("CONVERT DOC ERROR")
@@ -206,9 +197,6 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	//stockID := result.InsertedID.(primitive.ObjectID).Hex()
-	// fmt.Printf("Created a new item with ID: %s\n", stockID)
-	//stock.ItemID = stockID
 
 	w.Header().Set("Content-Type", "application/json")
 	jsonEncodeErr := json.NewEncoder(w).Encode(stock)
@@ -230,7 +218,6 @@ func subtractHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	//convertDocIDErr, documentID := shared.ConvertStringToMongoID(itemID)
 	convertDocIDErr, documentID := shared.ConvertStringToUUID(itemID)
 	if convertDocIDErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -287,7 +274,6 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	//convStringErr, documentID := shared.ConvertStringToMongoID(itemID)
 	convStringErr, documentID := shared.ConvertStringToUUID(itemID)
 	if convStringErr != nil {
 		log.Print(convStringErr)

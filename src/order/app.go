@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"net/http"
@@ -13,12 +14,14 @@ import (
 	"WDM-G1/shared"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-var client *mongo.Client
-var ordersCollection *mongo.Collection
+var clients [shared.NUM_DBS]*mongo.Client
+var ordersCollections [shared.NUM_DBS]*mongo.Collection
+
+//var client *mongo.Client
+//var ordersCollection *mongo.Collection
 
 const partition = 1
 
@@ -31,7 +34,7 @@ func main() {
 
 			if message.Name == "START-UPDATE-ORDER" {
 				// ignore error, will not happen
-				_, orderID := shared.ConvertStringToMongoID(message.Order.OrderID)
+				_, orderID := shared.ConvertStringToUUID(message.Order.OrderID)
 
 				clientError, serverError := updateOrder(orderID, true)
 				if clientError != nil || serverError != nil {
@@ -48,16 +51,13 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// TODO: implement hash
-	var err error
-	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://orderdb-service-0:27017"))
-	if err != nil {
-		log.Fatal(err)
+	setupErr := setupDBConnections(ctx)
+	if setupErr != nil {
+		log.Fatal(setupErr)
 	}
-	defer client.Disconnect(ctx)
-
-	db := client.Database("orders")
-	ordersCollection = db.Collection("orders")
+	for i := 0; i < shared.NUM_DBS; i++ {
+		defer clients[i].Disconnect(ctx)
+	}
 
 	router := mux.NewRouter()
 	router.HandleFunc("/orders/create/{user_id}", createOrderHandler)
@@ -79,15 +79,38 @@ func main() {
 	log.Fatal(http.ListenAndServe(addr, router))
 }
 
-func getOrder(orderID *primitive.ObjectID) (error, *shared.Order) {
+func setupDBConnections(ctx context.Context) error {
+	for i := 0; i < shared.NUM_DBS; i++ {
+		mongoURL := fmt.Sprintf("mongodb://orderdb-service-%d:27017", i)
+		//mongoURL := "mongodb://localhost:27017"
+		fmt.Printf("%d MongoDB URL: %s", i, mongoURL)
+		var err error
+		var client *mongo.Client
+		client, err = mongo.Connect(ctx, options.Client().ApplyURI(mongoURL))
+
+		if err != nil {
+			return err
+		}
+		clients[i] = client
+		ordersCollections[i] = client.Database("orders").Collection("orders")
+	}
+	return nil
+}
+
+func getOrder(orderID *uuid.UUID) (error, *shared.Order) {
+	ordersCollection := getOrdersCollection(*orderID)
 	filter := bson.M{"_id": orderID}
 	var order shared.Order
 	findDocErr := ordersCollection.FindOne(context.Background(), filter).Decode(&order)
 	if findDocErr != nil {
 		return findDocErr, nil
 	}
-	order.OrderID = orderID.Hex()
 	return nil, &order
+}
+
+func getOrdersCollection(orderID uuid.UUID) *mongo.Collection {
+	databaseNum := shared.HashUUID(orderID)
+	return ordersCollections[databaseNum]
 }
 
 // Functions only used by http
@@ -96,26 +119,28 @@ func createOrderHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := vars["user_id"]
 
-	convertUserIDErr, mongoUserID := shared.ConvertStringToMongoID(userID)
+	convertUserIDErr, mongoUserID := shared.ConvertStringToUUID(userID)
 	if convertUserIDErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	orderID := shared.GetNewID()
 
 	order := shared.Order{
+		ID:        orderID,
+		OrderID:   orderID.String(),
 		Paid:      false,
 		Items:     []string{},
-		UserID:    mongoUserID.Hex(),
+		UserID:    mongoUserID.String(),
 		TotalCost: 0.0,
 	}
 
-	insertResult, mongoInsertErr := ordersCollection.InsertOne(context.Background(), order)
+	ordersCollection := getOrdersCollection(orderID)
+	_, mongoInsertErr := ordersCollection.InsertOne(context.Background(), order)
 	if mongoInsertErr != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	orderID := insertResult.InsertedID.(primitive.ObjectID).Hex()
-	order.OrderID = orderID
 
 	w.Header().Set("Content-Type", "application/json")
 	jsonEncodeErr := json.NewEncoder(w).Encode(order)
@@ -128,12 +153,13 @@ func removeOrderHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
 
-	convertDocIDErr, documentID := shared.ConvertStringToMongoID(orderID)
+	convertDocIDErr, documentID := shared.ConvertStringToUUID(orderID)
 	if convertDocIDErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
+	ordersCollection := getOrdersCollection(*documentID)
 	filter := bson.M{"_id": documentID}
 	_, removeDocErr := ordersCollection.DeleteOne(context.Background(), filter)
 	if removeDocErr != nil {
@@ -146,7 +172,7 @@ func findOrderHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
 
-	convertDocIDErr, documentID := shared.ConvertStringToMongoID(orderID)
+	convertDocIDErr, documentID := shared.ConvertStringToUUID(orderID)
 	if convertDocIDErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -174,7 +200,7 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Adding item %s to order %s", itemID, orderID)
 
 	// fmt.Printf("Adding item %s to order %s", itemID, orderID)
-	convertItemIDErr, mongoItemID := shared.ConvertStringToMongoID(itemID)
+	convertItemIDErr, mongoItemID := shared.ConvertStringToUUID(itemID)
 	if convertItemIDErr != nil {
 		log.Print(convertItemIDErr)
 		w.WriteHeader(http.StatusBadRequest)
@@ -183,7 +209,9 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: use kafka
 
-	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://stock-service:5000/stock/find/%s", mongoItemID.Hex()))
+	stockURL := fmt.Sprintf("http://stock-service:5000/stock/find/%s", mongoItemID.String())
+	//stockURL := fmt.Sprintf("http://localhost:8082/stock/find/%s", mongoItemID.String())
+	getStockResponse, getStockErr := http.Get(stockURL)
 	log.Printf("response: %s", getStockResponse.StatusCode)
 	log.Printf("get stock err: %s", getStockErr)
 	if getStockErr != nil {
@@ -202,24 +230,24 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	convertOrderIDErr, mongoOrderID := shared.ConvertStringToMongoID(orderID)
+	convertOrderIDErr, mongoOrderID := shared.ConvertStringToUUID(orderID)
 	if convertOrderIDErr != nil {
 		log.Print(jsonDecodeErr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
+	ordersCollection := getOrdersCollection(*mongoOrderID)
 	orderFilter := bson.M{"_id": mongoOrderID}
 	orderUpdate := bson.M{
 		"$push": bson.M{
-			"items": mongoItemID.Hex(),
+			"items": mongoItemID.String(),
 		},
 		"$inc": bson.M{
 			"totalcost": item.Price,
 		},
 	}
-	//_, addItemErr := ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
-	result := shared.UpdateRecord(context.Background(), ordersCollection, orderFilter, orderUpdate)
+	result := shared.UpdateRecord(ordersCollection, orderFilter, orderUpdate)
 	if result.Err() != nil {
 		log.Print(result.Err())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -232,15 +260,16 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 	orderID := vars["order_id"]
 	itemID := vars["item_id"]
 
-	convertItemIDErr, mongoItemID := shared.ConvertStringToMongoID(itemID)
+	convertItemIDErr, mongoItemID := shared.ConvertStringToUUID(itemID)
 	if convertItemIDErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	// TODO: use kafka
-
-	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://stockdb-service-0:5000/find/%s", mongoItemID.Hex()))
+	stockURL := fmt.Sprintf("http://stock-service:5000/find/%s", mongoItemID.String())
+	//stockURL := fmt.Sprintf("http://localhost:8082/find/%s", mongoItemID.String())
+	getStockResponse, getStockErr := http.Get(stockURL)
 	if getStockErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -254,12 +283,13 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	convertOrderIDErr, mongoOrderID := shared.ConvertStringToMongoID(orderID)
+	convertOrderIDErr, mongoOrderID := shared.ConvertStringToUUID(orderID)
 	if convertOrderIDErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
+	ordersCollection := getOrdersCollection(*mongoOrderID)
 	orderFilter := bson.M{"_id": mongoOrderID}
 	orderUpdate := bson.M{
 		"$pull": bson.M{
@@ -269,8 +299,7 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 			"totalcost": -item.Price,
 		},
 	}
-	//_, removeItemErr := ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
-	result := shared.UpdateRecord(context.Background(), ordersCollection, orderFilter, orderUpdate)
+	result := shared.UpdateRecord(ordersCollection, orderFilter, orderUpdate)
 	if result.Err() != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -281,7 +310,7 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
 
-	convertOrderIDErr, mongoOrderID := shared.ConvertStringToMongoID(orderID)
+	convertOrderIDErr, mongoOrderID := shared.ConvertStringToUUID(orderID)
 	if convertOrderIDErr != nil {
 		log.Println("Convert String to Mongo ID error")
 		w.WriteHeader(http.StatusBadRequest)
@@ -319,19 +348,18 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 
 // Functions used only by kafka
 
-func updateOrder(orderID *primitive.ObjectID, status bool) (clientError error, serverError error) {
+func updateOrder(orderID *uuid.UUID, status bool) (clientError error, serverError error) {
+	ordersCollection := getOrdersCollection(*orderID)
 	orderFilter := bson.M{"_id": orderID}
 	orderUpdate := bson.M{
 		"$set": bson.M{
 			"paid": status,
 		},
 	}
-	//_, clientError = ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
-	result := shared.UpdateRecord(context.Background(), ordersCollection, orderFilter, orderUpdate)
+	result := shared.UpdateRecord(ordersCollection, orderFilter, orderUpdate)
 	if result.Err() != nil {
 		log.Print(result.Err())
 		return nil, result.Err()
 	}
-
-	return
+	return nil, nil
 }
