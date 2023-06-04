@@ -1,5 +1,7 @@
 package shared
 
+import "github.com/google/uuid"
+
 type Order struct {
 	OrderID   string   `json:"order_id"`
 	Paid      bool     `json:"paid"`
@@ -9,9 +11,10 @@ type Order struct {
 }
 
 type Item struct {
-	ItemID string  `json:"item_id"`
-	Stock  int64   `json:"stock"`
-	Price  float64 `json:"price"`
+	ID     uuid.UUID `bson:"_id"`
+	ItemID string    `json:"item_id"`
+	Stock  int64     `json:"stock"`
+	Price  int64     `json:"price"`
 }
 
 type User struct {

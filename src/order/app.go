@@ -20,7 +20,7 @@ import (
 var client *mongo.Client
 var ordersCollection *mongo.Collection
 
-const parititon = 1
+const partition = 1
 
 func main() {
 	go shared.SetUpKafkaListener(
@@ -48,11 +48,9 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	var err error
 	// TODO: implement hash
+	var err error
 	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://orderdb-service-0:27017"))
-	//client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
-
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -299,7 +297,7 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sender := shared.CreateConnection("order-ack", parititon)
+	sender := shared.CreateConnection("order-ack", partition)
 	defer sender.Close()
 
 	message := shared.SagaMessage{
