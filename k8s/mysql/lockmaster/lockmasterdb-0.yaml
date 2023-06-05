@@ -53,7 +53,7 @@ spec:
     - metadata:
         name: lockmasterdb-pvc-0
       spec:
-        storageClassName: standard
+        #storageClassName: standard
         accessModes:
           - ReadWriteOnce
         resources:

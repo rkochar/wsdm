@@ -36,7 +36,9 @@ spec:
               value: "1"
             - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
               value: "true"
+
 ---
+
 apiVersion: v1
 kind: Service
 metadata:
