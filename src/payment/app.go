@@ -34,7 +34,6 @@ func main() {
 	go shared.SetUpKafkaListener(
 		[]string{"payment"}, false,
 		func(message *shared.SagaMessage) (*shared.SagaMessage, string) {
-
 			returnMessage := shared.SagaMessageConvertStartToEnd(message)
 
 			// TODO: remove code duplication
@@ -85,13 +84,13 @@ func main() {
 	paymentCollection = db.Collection("payments")
 
 	router := mux.NewRouter()
-	router.HandleFunc("/payment/pay/{user_id}/{order_id}/{amount}", payHandler)
-	router.HandleFunc("/payment/cancel/{user_id}/{order_id}", cancelPaymentHandler)
-	router.HandleFunc("/payment/status/{user_id}/{order_id}", paymentStatusHandler)
-	router.HandleFunc("/payment/add_funds/{user_id}/{amount}", addFundsHandler)
-	router.HandleFunc("/payment/create_user", createUserHandler)
-	router.HandleFunc("/payment/find_user/{user_id}", findUserHandler)
-	router.HandleFunc("/payment/", greetingHandler)
+	router.HandleFunc("/pay/{user_id}/{order_id}/{amount}", payHandler)
+	router.HandleFunc("/cancel/{user_id}/{order_id}", cancelPaymentHandler)
+	router.HandleFunc("/status/{user_id}/{order_id}", paymentStatusHandler)
+	router.HandleFunc("/add_funds/{user_id}/{amount}", addFundsHandler)
+	router.HandleFunc("/create_user", createUserHandler)
+	router.HandleFunc("/find_user/{user_id}", findUserHandler)
+  router.HandleFunc("/", greetingHandler)
 
 	port := os.Getenv("PORT")
 	fmt.Printf("Current port is : %s\n", port)
@@ -106,7 +105,13 @@ func main() {
 }
 
 func greetingHandler(w http.ResponseWriter, r *http.Request) {
-	log.Print("Hello welcome to paymnt!!")
+  fmt.Println("URL Path:", r.URL.Path)
+
+    // You can also print the full URL if the request included it
+    if r.URL.RawQuery != "" {
+         fmt.Println("Full URL:", r.URL.String())
+    }
+  log.Print("Hello welcome to paymnt!!")
 }
 
 func getUser(documentID *primitive.ObjectID) (error, *shared.User) {
@@ -206,7 +211,7 @@ func addFundsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func createUserHandler(w http.ResponseWriter, r *http.Request) {
-
+  fmt.Println("creates user handler")
 	user := shared.User{
 		Credit: 0.0,
 	}

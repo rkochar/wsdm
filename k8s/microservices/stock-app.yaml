@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
         - name: stock
-          image: stock:latest
+          image: ghcr.io/rkochar/wsdm/stock:latest
           imagePullPolicy: IfNotPresent
           resources:
             limits:

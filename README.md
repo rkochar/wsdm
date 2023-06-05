@@ -67,3 +67,16 @@ Similarly to the `minikube` deployment but run the `deploy-charts-cluster.sh` in
 Before running the microservices you need to make sure the local or remote database is active. For MongoDB on Ubuntu this can be done using the following steps:
 1. Run `sudo systemctl status mongod` to check the status of MongoDB
 2. If disabled run: `sudo systemctl start mongod`
+
+### Actual Kubernetes on Local Machine
+```
+./deploy-kubernetes.sh
+```
+(Use a seperate terminal and keep it open)
+
+
+To delete everything,
+
+`./delete-kubernetes.sh`
+
+

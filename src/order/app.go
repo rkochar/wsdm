@@ -62,12 +62,13 @@ func main() {
 	ordersCollection = db.Collection("orders")
 
 	router := mux.NewRouter()
-	router.HandleFunc("/orders/create/{user_id}", createOrderHandler)
-	router.HandleFunc("/orders/remove/{order_id}", removeOrderHandler)
-	router.HandleFunc("/orders/find/{order_id}", findOrderHandler)
-	router.HandleFunc("/orders/addItem/{order_id}/{item_id}", addItemHandler)
-	router.HandleFunc("/orders/removeItem/{order_id}/{item_id}", removeItemHandler)
-	router.HandleFunc("/orders/checkout/{order_id}", checkoutHandler)
+	router.HandleFunc("/create/{user_id}", createOrderHandler)
+	router.HandleFunc("/remove/{order_id}", removeOrderHandler)
+	router.HandleFunc("/find/{order_id}", findOrderHandler)
+	router.HandleFunc("/addItem/{order_id}/{item_id}", addItemHandler)
+	router.HandleFunc("/removeItem/{order_id}/{item_id}", removeItemHandler)
+	router.HandleFunc("/checkout/{order_id}", checkoutHandler)
+	router.HandleFunc("/", defaultCheckoutHandler)
 
 	port := os.Getenv("PORT")
 	fmt.Printf("Current port is : %s\n", port)
@@ -279,6 +280,9 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func defaultCheckoutHandler(w http.ResponseWriter, r *http.Request) {
+  fmt.Println("default greeter order")
+}
 func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
