@@ -123,8 +123,7 @@ func setupDBConnections(ctx context.Context) error {
 }
 
 func getUser(documentID *uuid.UUID) (error, *shared.User) {
-	databaseNum := shared.HashUUID(*documentID)
-	userCollection := userCollections[databaseNum]
+	userCollection := getUserCollection(documentID)
 
 	var user shared.User
 	err := userCollection.FindOne(context.Background(), bson.M{"_id": documentID}).Decode(&user)
@@ -137,8 +136,7 @@ func getUser(documentID *uuid.UUID) (error, *shared.User) {
 }
 
 func getPayment(userID *uuid.UUID, orderID *uuid.UUID) (error, *shared.Payment) {
-	databaseNum := shared.HashTwoUUIDs(*orderID, *userID)
-	paymentCollection := paymentCollections[databaseNum]
+	paymentCollection := getPaymentCollection(userID, orderID)
 
 	filter := bson.M{"userid": userID, "orderid": orderID}
 	var payment shared.Payment
@@ -342,15 +340,13 @@ func pay(userID *uuid.UUID, orderID *uuid.UUID, amount *int64) (clientError erro
 			"credit": -*amount,
 		},
 	}
-	userDatabaseNum := shared.HashUUID(*userID)
-	userCollection := userCollections[userDatabaseNum]
+	userCollection := getUserCollection(userID)
 	result := shared.UpdateRecord(userCollection, userFilter, userUpdate)
 	if result.Err() != nil {
 		return nil, result.Err()
 	}
 
-	paymentDatabaseNum := shared.HashTwoUUIDs(*userID, *orderID)
-	paymentCollection := paymentCollections[paymentDatabaseNum]
+	paymentCollection := getPaymentCollection(userID, orderID)
 	payment := shared.Payment{
 		UserID:  userID.String(),
 		OrderID: orderID.String(),

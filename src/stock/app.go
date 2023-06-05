@@ -129,16 +129,21 @@ func setupDBConnections(ctx context.Context) error {
 }
 
 func getItem(documentID *uuid.UUID) (error, *shared.Item) {
-	databaseNum := shared.HashUUID(*documentID)
+	stockCollection := getStockCollection(documentID)
 
 	var item shared.Item
-	err := collections[databaseNum].FindOne(context.Background(), bson.M{"_id": documentID}).Decode(&item)
+	err := stockCollection.FindOne(context.Background(), bson.M{"_id": documentID}).Decode(&item)
 	if err != nil {
 		return err, nil
 	}
 	item.ID = *documentID
 	item.ItemID = documentID.String()
 	return nil, &item
+}
+
+func getStockCollection(itemID *uuid.UUID) *mongo.Collection {
+	databaseNum := shared.HashUUID(*itemID)
+	return collections[databaseNum]
 }
 
 // Functions only used by http
@@ -188,9 +193,7 @@ func createHandler(w http.ResponseWriter, r *http.Request) {
 		Price:  *PriceInt,
 	}
 
-	databaseNum := shared.HashUUID(documentID)
-	stockCollection := collections[databaseNum]
-
+	stockCollection := getStockCollection(&documentID)
 	_, insertErr := stockCollection.InsertOne(context.Background(), stock)
 	if insertErr != nil {
 		fmt.Println(insertErr)
@@ -253,8 +256,8 @@ func subtract(changes []ItemChange) (clientError error, serverError error) {
 				"stock": -change.amount,
 			},
 		}
-		databaseNum := shared.HashUUID(*change.itemID)
-		stockCollection := collections[databaseNum]
+
+		stockCollection := getStockCollection(change.itemID)
 		result := shared.UpdateRecord(stockCollection, bson.M{"_id": change.itemID}, update)
 		if result.Err() != nil {
 			log.Printf("Update stock error: %s", result.Err())
@@ -306,8 +309,7 @@ func add(changes []ItemChange) (clientError error, serverError error) {
 				"stock": change.amount,
 			},
 		}
-		databaseNum := shared.HashUUID(*change.itemID)
-		stockCollection := collections[databaseNum]
+		stockCollection := getStockCollection(change.itemID)
 		result := shared.UpdateRecord(stockCollection, filter, update)
 		if result.Err() != nil {
 			log.Print(result.Err())
