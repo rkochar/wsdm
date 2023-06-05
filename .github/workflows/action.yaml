@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - master
 
 env:
   REGISTRY: ghcr.io
@@ -59,9 +58,13 @@ jobs:
               - 'src/payment/*.go'
             lockmaster:
               - 'src/lockmaster/*.go'
+            api-gateway:
+              - 'src/api-gateway/*.go'
+            shared:
+              - 'src/shared/**'
 
       - name: stock-release-image
-        if: steps.check-changes.outputs.stock == 'true'
+        if: steps.check-changes.outputs.stock == 'true' || steps.check-changes.outputs.shared == 'true'
         id: stock-image
         uses: docker/build-push-action@v4.0.0
         with:
@@ -74,7 +77,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/stock:${{ steps.versioning.outputs.version_tag }}
 
       - name: order-release-image
-        if: steps.check-changes.outputs.order == 'true'
+        if: steps.check-changes.outputs.order == 'true' || steps.check-changes.outputs.shared == 'true'
         id: order-image
         uses: docker/build-push-action@v4.0.0
         with:
@@ -87,7 +90,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/order:${{ steps.versioning.outputs.version_tag }}
   
       - name: payment-release-image
-        if: steps.check-changes.outputs.payment == 'true'
+        if: steps.check-changes.outputs.payment == 'true' || steps.check-changes.outputs.shared == 'true'
         id: payment-image
         uses: docker/build-push-action@v4.0.0
         with:
@@ -100,7 +103,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/payment:${{ steps.versioning.outputs.version_tag }}
 
       - name: lockmaster-release-image
-        if: steps.check-changes.outputs.lockmaster == 'true'
+        if: steps.check-changes.outputs.lockmaster == 'true' || steps.check-changes.outputs.shared == 'true'
         id: lockmaster-image
         uses: docker/build-push-action@v4.0.0
         with:
@@ -111,3 +114,17 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/lockmaster:latest
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/lockmaster:${{steps.versioning.outputs.version_tag }}
+
+
+      - name: api-gateway-release-image
+        if: steps.check-changes.outputs.api-gateway == 'true' || steps.check-changes.outputs.shared == 'true'
+        id: api-gateway-image
+        uses: docker/build-push-action@v4.0.0
+        with:
+          context: ./
+          build-args: |
+            SERVICE=api-gateway
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/api-gateway:latest
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/api-gateway:${{steps.versioning.outputs.version_tag }}

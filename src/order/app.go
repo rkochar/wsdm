@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"net/http"
 	"os"
@@ -13,12 +14,13 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"main/shared"
 )
 
 var client *mongo.Client
 var ordersCollection *mongo.Collection
+
+const parititon = 0
 
 func main() {
 	go shared.SetUpKafkaListener(
@@ -47,8 +49,10 @@ func main() {
 	defer cancel()
 
 	var err error
-	//TODO: implement hash
-	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://orderdb-svc-0:27017"))
+	// TODO: implement hash
+	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://orderdb-service-0:27017"))
+	//client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -58,15 +62,16 @@ func main() {
 	ordersCollection = db.Collection("orders")
 
 	router := mux.NewRouter()
-	router.HandleFunc("/orders/create/{user_id}", createOrderHandler)
-	router.HandleFunc("/orders/remove/{order_id}", removeOrderHandler)
-	router.HandleFunc("/orders/find/{order_id}", findOrderHandler)
-	router.HandleFunc("/orders/addItem/{order_id}/{item_id}", addItemHandler)
-	router.HandleFunc("/orders/removeItem/{order_id}/{item_id}", removeItemHandler)
-	router.HandleFunc("/orders/checkout/{order_id}", checkoutHandler)
+	router.HandleFunc("/create/{user_id}", createOrderHandler)
+	router.HandleFunc("/remove/{order_id}", removeOrderHandler)
+	router.HandleFunc("/find/{order_id}", findOrderHandler)
+	router.HandleFunc("/addItem/{order_id}/{item_id}", addItemHandler)
+	router.HandleFunc("/removeItem/{order_id}/{item_id}", removeItemHandler)
+	router.HandleFunc("/checkout/{order_id}", checkoutHandler)
+	router.HandleFunc("/", defaultCheckoutHandler)
 
 	port := os.Getenv("PORT")
-	fmt.Printf("Current port is: %s\n", port)
+	fmt.Printf("Current port is : %s\n", port)
 	if port == "" {
 		port = "8080"
 	}
@@ -84,7 +89,7 @@ func getOrder(orderID *primitive.ObjectID) (error, *shared.Order) {
 	if findDocErr != nil {
 		return findDocErr, nil
 	}
-	// order.OrderID = orderID.String()
+	order.OrderID = orderID.Hex()
 	return nil, &order
 }
 
@@ -103,7 +108,7 @@ func createOrderHandler(w http.ResponseWriter, r *http.Request) {
 	order := shared.Order{
 		Paid:      false,
 		Items:     []string{},
-		UserID:    mongoUserID.String(),
+		UserID:    mongoUserID.Hex(),
 		TotalCost: 0.0,
 	}
 
@@ -169,19 +174,23 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 	orderID := vars["order_id"]
 	itemID := vars["item_id"]
 
+	log.Printf("Adding item %s to order %s", itemID, orderID)
+
 	// fmt.Printf("Adding item %s to order %s", itemID, orderID)
-	// convertItemIDErr, mongoItemID := shared.ConvertStringToMongoID(itemID)
-	// if convertItemIDErr != nil {
-	//	w.WriteHeader(http.StatusBadRequest)
-	//	return
-	// }
+	convertItemIDErr, mongoItemID := shared.ConvertStringToMongoID(itemID)
+	if convertItemIDErr != nil {
+		log.Print(convertItemIDErr)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	// TODO: use kafka
 
-	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://localhost:8082/stock/find/%s", itemID))
-	// fmt.Printf("response: %s", getStockResponse.StatusCode)
-	// fmt.Printf("get stock err: %s", getStockErr)
+	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://stock-service:5000/stock/find/%s", mongoItemID.Hex()))
+	log.Printf("response: %s", getStockResponse.StatusCode)
+	log.Printf("get stock err: %s", getStockErr)
 	if getStockErr != nil {
+		log.Print(getStockResponse)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -189,13 +198,16 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 
 	var item shared.Item
 	jsonDecodeErr := json.NewDecoder(getStockResponse.Body).Decode(&item)
+	log.Printf("json body err: %s", item)
 	if jsonDecodeErr != nil {
+		log.Print(jsonDecodeErr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	convertOrderIDErr, mongoOrderID := shared.ConvertStringToMongoID(orderID)
 	if convertOrderIDErr != nil {
+		log.Print(jsonDecodeErr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -203,14 +215,16 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 	orderFilter := bson.M{"_id": mongoOrderID}
 	orderUpdate := bson.M{
 		"$push": bson.M{
-			"items": itemID,
+			"items": mongoItemID.Hex(),
 		},
 		"$inc": bson.M{
 			"totalcost": item.Price,
 		},
 	}
-	_, addItemErr := ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
-	if addItemErr != nil {
+	//_, addItemErr := ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
+	result := shared.UpdateRecord(context.Background(), ordersCollection, orderFilter, orderUpdate)
+	if result.Err() != nil {
+		log.Print(result.Err())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -229,7 +243,7 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: use kafka
 
-	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://localhost:8082/stock/find/%s", mongoItemID))
+	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://stock-service:5000/find/%s", mongoItemID.Hex()))
 	if getStockErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -258,55 +272,61 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 			"totalcost": -item.Price,
 		},
 	}
-	_, removeItemErr := ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
-	if removeItemErr != nil {
+	//_, removeItemErr := ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
+	result := shared.UpdateRecord(context.Background(), ordersCollection, orderFilter, orderUpdate)
+	if result.Err() != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 }
 
+func defaultCheckoutHandler(w http.ResponseWriter, r *http.Request) {
+  fmt.Println("default greeter order")
+}
 func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
-
+	log.Println("Starting checkout saga for order", orderID)
+	statusCallback := http.StatusOK
 	convertOrderIDErr, mongoOrderID := shared.ConvertStringToMongoID(orderID)
 	if convertOrderIDErr != nil {
-		fmt.Println("Convert String to Mongo ID error")
+		log.Println("Convert String to Mongo ID error")
+		log.Printf("statusCallback is: %d", statusCallback)
+		statusCallback = shared.RouteCheckoutCall(orderID, http.StatusBadRequest)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	getOrderErr, order := getOrder(mongoOrderID)
 	order.OrderID = orderID
-	fmt.Println("Order ID", orderID, order.OrderID)
 	if getOrderErr != nil {
-		fmt.Println("Get order error")
+		statusCallback = shared.RouteCheckoutCall(orderID, http.StatusBadRequest)
+		log.Printf("statusCallback is: %d", statusCallback)
+		log.Println("Get order error")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	//TODO :deepali: create senders and listeners only once and use
 	sender := shared.CreateTopicSender("order-ack")
 	defer sender.Close()
-	fmt.Println("Order ID V2", orderID, order.OrderID)
+
 	message := shared.SagaMessage{
 		Name:   "START-CHECKOUT-SAGA",
 		SagaID: -1,
 		Order:  *order,
 	}
-	fmt.Println("Message: ", message)
-	message.Order.OrderID = orderID
-	fmt.Println("Message v2: ", message)
-	fmt.Println("Message v3: ", &message)
+	log.Println("Sending message to kafka", message)
+	// message.Order.OrderID = orderID
 
 	sendErr := shared.SendSagaMessage(&message, sender)
 	if sendErr != nil {
-		fmt.Println("Send Kafka SAGA message error")
+		log.Println("Send Kafka SAGA message error")
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+	w.WriteHeader(http.StatusOK)
 
 	// TODO: wait for response and return status
-	fmt.Println("TODO TODO TODO")
+	//log.Println("TODO TODO TODO")
 }
 
 // Functions used only by kafka
@@ -318,8 +338,12 @@ func updateOrder(orderID *primitive.ObjectID, status bool) (clientError error, s
 			"paid": status,
 		},
 	}
-
-	_, clientError = ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
+	//_, clientError = ordersCollection.UpdateOne(context.Background(), orderFilter, orderUpdate)
+	result := shared.UpdateRecord(context.Background(), ordersCollection, orderFilter, orderUpdate)
+	if result.Err() != nil {
+		log.Print(result.Err())
+		return nil, result.Err()
+	}
 
 	return
 }

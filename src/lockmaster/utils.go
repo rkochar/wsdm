@@ -46,18 +46,23 @@ func sagaMessageToSagaLog(sagaMessage *shared.SagaMessage) (error, *SagaLog) {
 	if msgTypErr != nil {
 		return msgTypErr, nil
 	}
-	fmt.Printf("Message Type: %d", messageType)
+	// fmt.Printf("Message Type: %d", messageType)
 
 	msgEventErr, messageEvent := getMessageEventInt(sagaMessage.Name)
 	if msgEventErr != nil {
 		return msgEventErr, nil
 	}
-	fmt.Printf("Message Event: %d", messageEvent)
+	// fmt.Printf("Message Event: %d", messageEvent)
 
+	orderBytes, unmarshalErr := json.Marshal(sagaMessage.Order)
+	if unmarshalErr != nil {
+		return unmarshalErr, nil
+	}
 	return nil, &SagaLog{
 		SagaID:       sagaMessage.SagaID,
 		MessageType:  messageType,
 		MessageEvent: messageEvent,
+		SagaContents: string(orderBytes),
 	}
 }
 
@@ -102,7 +107,7 @@ func getMessageTypeInt(messageName string) (error, int64) {
 func getMessageEventInt(messageName string) (error, int64) {
 	parts := strings.Split(messageName, "-")
 
-	messageEventStr := strings.Join(parts[1:2], "-")
+	messageEventStr := strings.Join(parts[1:3], "-")
 	messageEvent, found := messageEventMapStringToInt[messageEventStr]
 	if !found {
 		errorMsg := fmt.Sprintf("invalid message event: %s", messageEventStr)

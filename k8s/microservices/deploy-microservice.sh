@@ -12,5 +12,9 @@ kubectl apply -f ./k8s/microservices/order-app.yaml
 echo "Deploying payment"
 kubectl apply -f ./k8s/microservices/payment-app.yaml
 
+sleep 10
 echo "Deploying lockmaster"
 kubectl apply -f ./k8s/microservices/lockmaster-app.yaml
+
+echo "Deploying API Gateway"
+./k8s/microservices/api-gateway/deploy-api-gateway.sh

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"fmt"
-
+	"log"
 	"main/shared"
+	"net/http"
 )
 
 type Action struct {
@@ -14,7 +14,7 @@ type Action struct {
 // Maps incoming message to outgoing message
 var successfulActionMap = map[string]Action{
 	// Normal checkout
-	"START-CHECKOUT-SAGA": {"START-SUBTRACT-STOCK", "order-syn"},
+	"START-CHECKOUT-SAGA": {"START-SUBTRACT-STOCK", "stock-syn"},
 	"END-SUBTRACT-STOCK":  {"START-MAKE-PAYMENT", "payment-syn"},
 	"END-MAKE-PAYMENT":    {"START-UPDATE-ORDER", "order-syn"},
 	"END-UPDATE-ORDER":    {"END-CHECKOUT-SAGA", ""},
@@ -45,16 +45,22 @@ func main() {
 
 			var nextAction Action
 			var messageResponseAvailable bool
+			statusCallback := http.StatusOK
 
 			if message.Name == "ABORT-CHECKOUT-SAGA" {
 				_, previousLog := dbConn.getLatestSagaLog(message.SagaID)
 				_, previousMessage := sagaLogToSagaMessage(previousLog)
 
 				nextAction, messageResponseAvailable = failActionMap[previousMessage.Name]
+				statusCallback = shared.RouteCheckoutCall(message.Order.OrderID, http.StatusBadRequest)
 			} else {
 				nextAction, messageResponseAvailable = successfulActionMap[message.Name]
-				fmt.Printf("Next action topic: %s next message: %s", nextAction.topic, nextAction.nextMessage)
+				if nextAction.nextMessage == "END-CHECKOUT-SAGA" {
+					statusCallback = shared.RouteCheckoutCall(message.Order.OrderID, http.StatusOK)
+				}
 			}
+
+			log.Print(message.Order.OrderID, http.StatusBadRequest, statusCallback)
 
 			if !messageResponseAvailable {
 				return nil, ""

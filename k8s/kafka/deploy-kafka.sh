@@ -1,7 +1,7 @@
 #1/bin/bash
 
-echo "Creating namespace"
-kubectl apply -f ./k8s/kafka/namespace.yaml
+#echo "Creating namespace"
+#kubectl apply -f ./k8s/kafka/namespace.yaml
 
 echo "Deploying zookeeper"
 kubectl apply -f ./k8s/kafka/zookeeper.yaml

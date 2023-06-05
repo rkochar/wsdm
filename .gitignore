@@ -1,6 +1,5 @@
 .idea
 .DS_Store
 *.pyc
-/src/api-gateway/
-
 .run
+/build.sh
