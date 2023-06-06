@@ -18,16 +18,16 @@ var channelMap = make(map[string]chan int)
 // Create a mutex for synchronization
 var mutex sync.Mutex
 
-const ORDER_SERVICE = "http://order-service:5000/orders/checkout/"
+const ORDER_SERVICE = "http://order-service:5000/checkout/"
 const TIMEOUT_SECONDS = 30
 
 func main() {
 	defer cleanup()
 
 	router := mux.NewRouter()
-	router.HandleFunc("/orders/checkout/{order_id}", checkoutHandler)
-	router.HandleFunc("/orders/checkout/", homeHandler)
-	router.HandleFunc("/orders/checkout/{order_id}/{status}", unblockCheckout)
+	router.HandleFunc("/{order_id}", checkoutHandler)
+	router.HandleFunc("/", homeHandler)
+	router.HandleFunc("/{order_id}/{status}", unblockCheckout)
 
 	port := os.Getenv("PORT")
 	fmt.Printf("\nCurrent port is: %s", port)

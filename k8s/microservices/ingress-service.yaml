@@ -12,14 +12,14 @@ spec:
    #- host: testkube.info
    - http:
       paths:
-#        - path: /orders/checkout/?(.*)
-#          pathType: Prefix
-#          backend:
-#            service:
-#              name: api-gateway-service-0
-#              port:
-#                number: 27017
-        - path: /orders/(.*)
+        - path: /orders/checkout/(.*)
+          pathType: ImplementationSpecific
+          backend:
+            service:
+              name: api-gateway-service-0
+              port:
+                number: 5000
+        - path: /order/(?!checkout).+
           pathType: ImplementationSpecific
           backend:
             service:
@@ -56,4 +56,4 @@ spec:
   selector:
     app: nginx-server
   type: ExternalName
-  externalName: deepa.smart.bulb.namespace.com
+  externalName: asterios.smart.bulb.namespace.com

@@ -21,8 +21,6 @@ import (
 var clients [shared.NUM_DBS]*mongo.Client
 var ordersCollections [shared.NUM_DBS]*mongo.Collection
 
-const parititon = 0
-
 func main() {
 	go shared.SetUpKafkaListener(
 		[]string{"order"}, false,
@@ -347,7 +345,7 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println("Send Kafka SAGA message error")
 		w.WriteHeader(http.StatusInternalServerError)
 	}
-	
+
 	w.WriteHeader(http.StatusOK)
 }
 
