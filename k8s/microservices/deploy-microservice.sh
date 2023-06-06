@@ -1,7 +1,5 @@
 #1/bin/bash
 
-echo "Deploying nginx"
-kubectl apply -f ./k8s/microservices/nginx.yaml
 
 echo "Deploying API Gateway"
 ./k8s/microservices/api-gateway/deploy-api-gateway.sh
@@ -19,5 +17,7 @@ sleep 10
 echo "Deploying lockmaster"
 kubectl apply -f ./k8s/microservices/lockmaster-app.yaml
 
-echo "Deploying API Gateway"
-./k8s/microservices/api-gateway/deploy-api-gateway.sh
+sleep 30
+echo "Deploying nginx"
+kubectl apply -f ./k8s/microservices/nginx.yaml
+

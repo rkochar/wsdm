@@ -6,7 +6,7 @@ import (
 	"strconv"
 )
 
-const API_GATEWAY = "http://nginx-reverse-proxy-service:80/orders/checkout/release/"
+const API_GATEWAY = "http://nginx-service:80/orders/checkout/release/"
 
 func RouteCheckoutCall(orderID string, status int) int {
 	str := strconv.Itoa(status)

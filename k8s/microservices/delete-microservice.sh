@@ -19,4 +19,4 @@ echo "Deleting API Gateway"
 ./k8s/microservices/api-gateway/delete-api-gateway.sh
 
 echo "Deleting NGINX"
-kubectl delete -f ./k8s/microservices/nginx/nginx.yaml
+kubectl delete -f ./k8s/microservices/nginx.yaml
