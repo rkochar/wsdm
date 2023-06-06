@@ -193,26 +193,21 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
 	itemID := vars["item_id"]
+	//log.Printf("Adding item %s to order %s", itemID, orderID)
 
-	log.Printf("Adding item %s to order %s", itemID, orderID)
-
-	// fmt.Printf("Adding item %s to order %s", itemID, orderID)
 	convertItemIDErr, mongoItemID := shared.ConvertStringToUUID(itemID)
 	if convertItemIDErr != nil {
-		log.Print(convertItemIDErr)
+		//log.Print(convertItemIDErr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	// TODO: use kafka
-
 	stockURL := fmt.Sprintf("http://stock-service:5000/find/%s", mongoItemID.String())
-	// stockURL := fmt.Sprintf("http://localhost:8082/find/%s", mongoItemID.String())
 	getStockResponse, getStockErr := http.Get(stockURL)
-	log.Printf("response: %s", getStockResponse.StatusCode)
-	log.Printf("get stock err: %s", getStockErr)
+	//log.Printf("response: %s", getStockResponse.StatusCode)
+	//log.Printf("get stock err: %s", getStockErr)
 	if getStockErr != nil {
-		log.Print(getStockResponse)
+		//log.Print(getStockResponse)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -220,16 +215,16 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 
 	var item shared.Item
 	jsonDecodeErr := json.NewDecoder(getStockResponse.Body).Decode(&item)
-	log.Printf("json body err: %s", item)
+	//log.Printf("json body err: %s", item)
 	if jsonDecodeErr != nil {
-		log.Print(jsonDecodeErr)
+		//log.Print(jsonDecodeErr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	convertOrderIDErr, mongoOrderID := shared.ConvertStringToUUID(orderID)
 	if convertOrderIDErr != nil {
-		log.Print(jsonDecodeErr)
+		//log.Print(jsonDecodeErr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -246,7 +241,7 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	result := shared.UpdateRecord(ordersCollection, orderFilter, orderUpdate)
 	if result.Err() != nil {
-		log.Print(result.Err())
+		//log.Print(result.Err())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -303,12 +298,14 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 
 func defaultCheckoutHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("default greeter order")
+	fmt.Printf("Url: %s\n", r.URL.String())
 }
+
 func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
 	convertOrderIDErr, mongoOrderID := shared.ConvertStringToUUID(orderID)
-	log.Println("Starting checkout saga for order", orderID)
+	//log.Println("Starting checkout saga for order", orderID)
 	statusCallback := http.StatusOK
 
 	if convertOrderIDErr != nil {
@@ -337,7 +334,7 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 		SagaID: -1,
 		Order:  *order,
 	}
-	log.Println("Sending message to kafka", message)
+	//log.Println("Sending message to kafka", message)
 	// message.Order.OrderID = orderID
 
 	sendErr := shared.SendSagaMessage(&message, sender)
