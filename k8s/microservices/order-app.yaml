@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
         - name: order
-          image: ghcr.io/rkochar/wsdm/order:greetingv3
+          image: ghcr.io/rkochar/wsdm/order:latest
           imagePullPolicy: IfNotPresent
           resources:
             limits:
