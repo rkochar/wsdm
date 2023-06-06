@@ -27,6 +27,8 @@ class TestMicroservices(unittest.TestCase):
 
         # Test /stock/subtract/<item_id>/<number>
         over_subtract_stock_response = tu.subtract_stock(item_id, 200)
+        stock_after_add: int = tu.find_item(item_id)['stock']
+        print(stock_after_add)
         self.assertTrue(tu.status_code_is_failure(int(over_subtract_stock_response)))
 
         subtract_stock_response = tu.subtract_stock(item_id, 15)
