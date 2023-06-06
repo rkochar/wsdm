@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-reverse-proxy
+  name: nginx
 spec:
   replicas: 1  # Adjust the number of replicas as needed
   selector:
     matchLabels:
-      app: nginx-reverse-proxy
+      app: nginx
   template:
     metadata:
       labels:
-        app: nginx-reverse-proxy
+        app: nginx
     spec:
       containers:
         - name: nginx
@@ -22,10 +22,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: nginx-reverse-proxy-service
+  name: nginx-service
 spec:
   selector:
-    app: nginx-reverse-proxy
+    app: nginx
   ports:
     - protocol: TCP
       port: 80
