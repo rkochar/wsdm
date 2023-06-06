@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
@@ -34,11 +35,21 @@ var failActionMap = map[string]Action{
 	"START-UPDATE-ORDER": {"START-CANCEL-PAYMENT", "payment-syn"},
 }
 
-var dbConn MySQLConnection
+var numInstances *int64
+
+// var dbConn MySQLConnection
+var dbConnections []MySQLConnection
 
 func main() {
-	dbConn = makeMySQLConnection()
-	defer dbConn.db.Close()
+	var instanceNumErr error
+	instanceNumErr, numInstances = shared.GetNumOfServices(shared.StockService)
+	if instanceNumErr != nil {
+		log.Fatal(instanceNumErr)
+	}
+	setupDBConnections()
+	for i := 0; i < int(*numInstances); i++ {
+		defer dbConnections[i].db.Close()
+	}
 
 	shared.SetUpKafkaListener(
 		[]string{"order", "stock", "payment"}, true,
@@ -49,6 +60,7 @@ func main() {
 			statusCallback := http.StatusOK
 
 			if message.Name == "ABORT-CHECKOUT-SAGA" {
+				dbConn := getDBConnection(message.SagaID)
 				_, previousLog := dbConn.getLatestSagaLog(message.SagaID)
 				_, previousMessage := sagaLogToSagaMessage(previousLog)
 
@@ -68,12 +80,14 @@ func main() {
 			}
 
 			if message.SagaID == -1 {
+				dbConn := getDBConnection(message.SagaID)
 				_, sagaID := dbConn.createSaga()
 				message.SagaID = *sagaID
 			}
 
 			_, sagaLogIn := sagaMessageToSagaLog(message)
-			dbConn.insertSagaLog(sagaLogIn)
+			dbConnIn := getDBConnection(message.SagaID)
+			dbConnIn.insertSagaLog(sagaLogIn)
 
 			outMessage := shared.SagaMessage{
 				Name:   nextAction.nextMessage,
@@ -82,9 +96,25 @@ func main() {
 			}
 
 			_, sagaLogOut := sagaMessageToSagaLog(&outMessage)
-			dbConn.insertSagaLog(sagaLogOut)
+			dbConnOut := getDBConnection(outMessage.SagaID)
+			dbConnOut.insertSagaLog(sagaLogOut)
 
 			return &outMessage, nextAction.topic
 		},
 	)
+}
+
+func setupDBConnections() {
+	dbConnections := make([]MySQLConnection, *numInstances)
+
+	for i := 0; i < int(*numInstances); i++ {
+		fmt.Println("Setting up DB connection %d\n", i)
+
+		dbConnections[i] = makeMySQLConnection(i)
+	}
+}
+
+func getDBConnection(sagaID int64) MySQLConnection {
+	databaseNum := sagaID % *numInstances
+	return dbConnections[databaseNum]
 }

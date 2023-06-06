@@ -27,14 +27,14 @@ type MySQLConnection struct {
 	db *sql.DB
 }
 
-func makeMySQLConnection() MySQLConnection {
-	dbConn = MySQLConnection{}
-	dbConn.init()
+func makeMySQLConnection(dbNum int) MySQLConnection {
+	dbConn := MySQLConnection{}
+	dbConn.init(dbNum)
 	return dbConn
 }
 
-func (dbConn *MySQLConnection) init() {
-	err := dbConn.connectDB()
+func (dbConn *MySQLConnection) init(dbNum int) {
+	err := dbConn.connectDB(dbNum)
 	if err != nil {
 		log.Fatal("Failed to connect to the database:", err)
 	}
@@ -50,11 +50,13 @@ func (dbConn *MySQLConnection) init() {
 	}
 }
 
-func (dbConn *MySQLConnection) connectDB() error {
+func (dbConn *MySQLConnection) connectDB(dbNum int) error {
 	dbUser := "user"
 	dbPass := "pass"
 	dbName := "lockmaster"
-	dbHost := "lockmasterdb-service-0"
+	//dbHost := "lockmasterdb-service-0"
+	dbHost := fmt.Sprintf("lockmasterdb-service-%d", dbNum)
+	fmt.Printf("MySQL Database %d host: %s", dbNum, dbHost)
 	dbPort := 3306
 	connString := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true", dbUser, dbPass, dbHost, dbPort, dbName)
 
