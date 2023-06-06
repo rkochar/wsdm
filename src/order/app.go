@@ -206,8 +206,8 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: use kafka
 
-	stockURL := fmt.Sprintf("http://stock-service:5000/stock/find/%s", mongoItemID.String())
-	// stockURL := fmt.Sprintf("http://localhost:8082/stock/find/%s", mongoItemID.String())
+	stockURL := fmt.Sprintf("http://stock-service:5000/find/%s", mongoItemID.String())
+	// stockURL := fmt.Sprintf("http://localhost:8082/find/%s", mongoItemID.String())
 	getStockResponse, getStockErr := http.Get(stockURL)
 	log.Printf("response: %s", getStockResponse.StatusCode)
 	log.Printf("get stock err: %s", getStockErr)

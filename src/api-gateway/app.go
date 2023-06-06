@@ -26,8 +26,8 @@ func main() {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/{order_id}", checkoutHandler)
-	router.HandleFunc("/", homeHandler)
 	router.HandleFunc("/release/{order_id}/{status}", unblockCheckout)
+	router.HandleFunc("/", homeHandler)
 
 	port := os.Getenv("PORT")
 	fmt.Printf("\nCurrent port is: %s", port)

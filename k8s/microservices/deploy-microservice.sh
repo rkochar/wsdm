@@ -18,3 +18,6 @@ kubectl apply -f ./k8s/microservices/lockmaster-app.yaml
 
 echo "Deploying API Gateway"
 ./k8s/microservices/api-gateway/deploy-api-gateway.sh
+
+echo "Deleting NGINX"
+kubectl apply -f ./k8s/microservices/nginx/nginx.yaml
