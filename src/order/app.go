@@ -185,8 +185,8 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: use kafka
-
-	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://stock-service:5000/stock/find/%s", mongoItemID.Hex()))
+	log.Println("Getting stock deepali")
+	getStockResponse, getStockErr := http.Get(fmt.Sprintf("http://stock-service:5000/find/%s", mongoItemID.Hex()))
 	log.Printf("response: %s", getStockResponse.StatusCode)
 	log.Printf("get stock err: %s", getStockErr)
 	if getStockErr != nil {
@@ -281,7 +281,7 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func defaultCheckoutHandler(w http.ResponseWriter, r *http.Request) {
-  fmt.Println("default greeter order")
+	fmt.Println("default greeter order")
 }
 func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
