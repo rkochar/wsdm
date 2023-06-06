@@ -19,7 +19,7 @@ var channelMap = make(map[string]chan int)
 var mutex sync.Mutex
 
 const ORDER_SERVICE = "http://order-service:5000/checkout/"
-const TIMEOUT_SECONDS = 30
+const TIMEOUT_SECONDS = 100
 
 func main() {
 	defer cleanup()
@@ -60,9 +60,9 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 			select {
 			case finalResponseCode := <-channelMap[orderID]:
 				w.WriteHeader(finalResponseCode)
-				fmt.Printf("\nReceived status %d for order %s:", finalResponseCode, orderID)
+				log.Printf("\nReceived status %d for order %s:", finalResponseCode, orderID)
 			case <-time.After(TIMEOUT_SECONDS * time.Second):
-				fmt.Printf("\nTimeout occurred for order connection", orderID)
+				log.Printf("\nTimeout occurred for order connection", orderID)
 			}
 
 		}
@@ -79,12 +79,12 @@ func unblockCheckout(w http.ResponseWriter, r *http.Request) {
 	status, err := strconv.Atoi(vars["status"])
 	log.Printf("\nTrying to unlock order: %s with status %d", orderID, status)
 	if err != nil {
-		fmt.Println("Failed to convert string to integer:", err, orderID, vars["status"])
+		log.Println("Failed to convert string to integer:", err, orderID, vars["status"])
 		releaseChannel(orderID, http.StatusBadRequest)
 		return
 	}
 	releaseChannel(orderID, status)
-	w.WriteHeader(http.StatusBadRequest)
+	w.WriteHeader(http.StatusOK)
 	return
 }
 
@@ -120,6 +120,7 @@ func releaseChannel(orderId string, status int) {
 	} else {
 		ch <- status
 		mutex.Unlock()
+		log.Printf("\nUnlocked order: %s with status %d", orderId, status)
 	}
 
 }
