@@ -19,7 +19,7 @@ var channelMap = make(map[string]chan int)
 var mutex sync.Mutex
 
 const ORDER_SERVICE = "http://order-service:5000/checkout/"
-const TIMEOUT_SECONDS = 100
+const TIMEOUT_SECONDS = 15
 
 func main() {
 	defer cleanup()
@@ -64,6 +64,7 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 				log.Printf("\nReceived status %d for order %s:", finalResponseCode, orderID)
 			case <-time.After(TIMEOUT_SECONDS * time.Second):
 				log.Printf("\nTimeout occurred for order connection", orderID)
+				w.WriteHeader(http.StatusBadRequest)
 			}
 
 		}
@@ -106,23 +107,20 @@ func createChannel(orderId string) bool {
 
 func deleteChannel(orderId string) {
 	mutex.Lock()
+	log.Printf("\nDeleting channel for order %s", orderId)
 	delete(channelMap, orderId)
 	mutex.Unlock()
 
 }
 
 func releaseChannel(orderId string, status int) {
-	log.Println("Trying to aquicre lock on channel")
-	mutex.Lock()
 	ch := channelMap[orderId]
 	if ch == nil {
 		log.Print("Connection does not exist for order id ", orderId)
-		mutex.Unlock()
-		return
 	} else {
-		ch <- status
-		mutex.Unlock()
 		log.Printf("\nUnlocked order: %s with status %d", orderId, status)
+		ch <- status
+
 	}
 
 }
