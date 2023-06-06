@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/gorilla/mux"
 )
 
 // Create a map of channels
@@ -53,7 +54,7 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	if channelCreationStatus {
 		log.Printf("\nNew Order call %s received", orderID)
 		immediateResponseCode := routeCheckoutCall(orderID)
-		if immediateResponseCode != http.StatusOK { //saga start went fine
+		if immediateResponseCode != http.StatusOK { // saga start went fine
 			w.WriteHeader(http.StatusBadRequest)
 		} else {
 			select {
@@ -94,7 +95,7 @@ func createChannel(orderId string) bool {
 	if ch == nil {
 		channelMap[orderId] = make(chan int)
 	} else {
-		//Order saga already in progress, cant place again
+		// Order saga already in progress, cant place again
 		log.Print("Saga already in progress dont start again", orderId)
 		status = false
 	}

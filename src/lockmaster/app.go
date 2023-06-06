@@ -2,8 +2,9 @@ package main
 
 import (
 	"log"
-	"main/shared"
 	"net/http"
+
+	"main/shared"
 )
 
 type Action struct {
