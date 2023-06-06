@@ -5,27 +5,26 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
+	"WDM-G1/shared"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"main/shared"
 )
 
 type ItemChange struct {
-	itemID *primitive.ObjectID
+	itemID *uuid.UUID
 	amount int64
 }
 
-var client *mongo.Client
-var stockCollection *mongo.Collection
+var clients [shared.NUM_DBS]*mongo.Client
+var collections [shared.NUM_DBS]*mongo.Collection
 
 func main() {
 	go shared.SetUpKafkaListener(
@@ -41,7 +40,7 @@ func main() {
 
 				for i, stringID := range message.Order.Items {
 					// ignore error, will not happen
-					_, itemID := shared.ConvertStringToMongoID(stringID)
+					_, itemID := shared.ConvertStringToUUID(stringID)
 
 					changes[i] = ItemChange{
 						itemID: itemID,
@@ -62,7 +61,7 @@ func main() {
 
 				for i, stringID := range message.Order.Items {
 					// ignore error, will not happen
-					_, itemID := shared.ConvertStringToMongoID(stringID)
+					_, itemID := shared.ConvertStringToUUID(stringID)
 
 					changes[i] = ItemChange{
 						itemID: itemID,
@@ -85,17 +84,13 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	var err error
-	// TODO: implement hash
-	client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://stockdb-service-0:27017"))
-	//client, err = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
-	if err != nil {
-		log.Fatal(err)
+	setupErr := setupDBConnections(ctx)
+	if setupErr != nil {
+		log.Fatal(setupErr)
 	}
-	defer client.Disconnect(ctx)
-
-	db := client.Database("stock")
-	stockCollection = db.Collection("stock")
+	for i := 0; i < shared.NUM_DBS; i++ {
+		defer clients[i].Disconnect(ctx)
+	}
 
 	router := mux.NewRouter()
 	router.HandleFunc("/find/{item_id}", findHandler)
@@ -116,14 +111,40 @@ func main() {
 	log.Fatal(http.ListenAndServe(addr, router))
 }
 
-func getItem(documentID *primitive.ObjectID) (error, *shared.Item) {
+func setupDBConnections(ctx context.Context) error {
+	for i := 0; i < shared.NUM_DBS; i++ {
+		mongoURL := fmt.Sprintf("mongodb://orderdb-service-%d:27017", i)
+		//mongoURL := "mongodb://localhost:27017"
+		fmt.Printf("%d MongoDB URL: %s", i, mongoURL)
+		var err error
+		var client *mongo.Client
+		client, err = mongo.Connect(ctx, options.Client().ApplyURI(mongoURL))
+
+		if err != nil {
+			return err
+		}
+		clients[i] = client
+		collections[i] = client.Database("stock").Collection("stock")
+	}
+	return nil
+}
+
+func getItem(documentID *uuid.UUID) (error, *shared.Item) {
+	stockCollection := getStockCollection(documentID)
+
 	var item shared.Item
 	err := stockCollection.FindOne(context.Background(), bson.M{"_id": documentID}).Decode(&item)
 	if err != nil {
 		return err, nil
 	}
-	item.ItemID = documentID.Hex()
+	item.ID = *documentID
+	item.ItemID = documentID.String()
 	return nil, &item
+}
+
+func getStockCollection(itemID *uuid.UUID) *mongo.Collection {
+	databaseNum := shared.HashUUID(*itemID)
+	return collections[databaseNum]
 }
 
 // Functions only used by http
@@ -133,7 +154,7 @@ func findHandler(w http.ResponseWriter, r *http.Request) {
 	itemID := vars["item_id"]
 	// fmt.Printf("item ID: %s", itemID)
 
-	convertDocIDErr, documentID := shared.ConvertStringToMongoID(itemID)
+	convertDocIDErr, documentID := shared.ConvertStringToUUID(itemID)
 	if convertDocIDErr != nil {
 		fmt.Println("CONVERT DOC ERROR")
 		w.WriteHeader(http.StatusBadRequest)
@@ -143,7 +164,7 @@ func findHandler(w http.ResponseWriter, r *http.Request) {
 	// fmt.Printf("Find: %s\n", itemID)
 	findErr, item := getItem(documentID)
 	if findErr != nil {
-		fmt.Println("GET ITEM ERROR")
+		fmt.Println("GET ITEM ERROR", findErr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -156,33 +177,34 @@ func findHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func defaultHandler(w http.ResponseWriter, r *http.Request) {
-  fmt.Println("defualt greeter of stock")
+	fmt.Println("defualt greeter of stock")
 }
 
 func createHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	price := vars["price"]
-	priceFloat, err := strconv.ParseFloat(price, 64)
+	err, PriceInt := shared.ConvertStringToInt(price)
 	if err != nil {
 		fmt.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	// fmt.Printf("Creating item with price %s\n", price)
+	documentID := shared.GetNewID()
 	stock := shared.Item{
-		Stock: 0,
-		Price: priceFloat,
+		ID:     documentID,
+		ItemID: documentID.String(),
+		Stock:  0,
+		Price:  *PriceInt,
 	}
 
-	result, insertErr := stockCollection.InsertOne(context.Background(), stock)
+	stockCollection := getStockCollection(&documentID)
+	_, insertErr := stockCollection.InsertOne(context.Background(), stock)
 	if insertErr != nil {
 		fmt.Println(insertErr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	stockID := result.InsertedID.(primitive.ObjectID).Hex()
-	// fmt.Printf("Created a new item with ID: %s\n", stockID)
-	stock.ItemID = stockID
 
 	w.Header().Set("Content-Type", "application/json")
 	jsonEncodeErr := json.NewEncoder(w).Encode(stock)
@@ -204,7 +226,7 @@ func subtractHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	convertDocIDErr, documentID := shared.ConvertStringToMongoID(itemID)
+	convertDocIDErr, documentID := shared.ConvertStringToUUID(itemID)
 	if convertDocIDErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -226,7 +248,6 @@ func subtractHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func subtract(changes []ItemChange) (clientError error, serverError error) {
-	//callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
 	for _, change := range changes {
 		getItemErr, item := getItem(change.itemID)
 		if getItemErr != nil {
@@ -240,28 +261,15 @@ func subtract(changes []ItemChange) (clientError error, serverError error) {
 				"stock": -change.amount,
 			},
 		}
-		//_, updateErr := stockCollection.UpdateOne(sessCtx, bson.M{"_id": change.itemID}, update)
-		result := shared.UpdateRecord(context.Background(), stockCollection, bson.M{"_id": change.itemID}, update)
+
+		stockCollection := getStockCollection(change.itemID)
+		result := shared.UpdateRecord(stockCollection, bson.M{"_id": change.itemID}, update)
 		if result.Err() != nil {
 			log.Printf("Update stock error: %s", result.Err())
 			return nil, result.Err()
 		}
 	}
 	return nil, nil
-	//}
-
-	//var session mongo.Session
-	//session, serverError = client.StartSession()
-	//if serverError != nil {
-	//	return
-	//}
-
-	//ctx := context.Background()
-	//defer session.EndSession(ctx)
-	//
-	//_, clientError = session.WithTransaction(ctx, callback)
-	//
-	//return
 }
 
 func addHandler(w http.ResponseWriter, r *http.Request) {
@@ -274,7 +282,7 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	convStringErr, documentID := shared.ConvertStringToMongoID(itemID)
+	convStringErr, documentID := shared.ConvertStringToUUID(itemID)
 	if convStringErr != nil {
 		log.Print(convStringErr)
 		w.WriteHeader(http.StatusBadRequest)
@@ -299,7 +307,6 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func add(changes []ItemChange) (clientError error, serverError error) {
-	//callback := func(sessCtx mongo.SessionContext) (interface{}, error) {
 	for _, change := range changes {
 		filter := bson.M{"_id": change.itemID}
 		update := bson.M{
@@ -307,27 +314,12 @@ func add(changes []ItemChange) (clientError error, serverError error) {
 				"stock": change.amount,
 			},
 		}
-
-		result := shared.UpdateRecord(context.Background(), stockCollection, filter, update)
+		stockCollection := getStockCollection(change.itemID)
+		result := shared.UpdateRecord(stockCollection, filter, update)
 		if result.Err() != nil {
 			log.Print(result.Err())
 			return nil, result.Err()
 		}
 	}
 	return nil, nil
-	//}
-
-	//var session mongo.Session
-	//session, serverError = client.StartSession()
-	//if serverError != nil {
-	//	log.Print(serverError)
-	//	return
-	//}
-	//
-	//ctx := context.Background()
-	//defer session.EndSession(ctx)
-	//
-	//_, clientError = session.WithTransaction(ctx, callback)
-	//
-	//return
 }

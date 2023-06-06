@@ -6,7 +6,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func UpdateRecord(sessCtx context.Context, collection *mongo.Collection, filter interface{}, update interface{}) *mongo.SingleResult {
+func UpdateRecord(collection *mongo.Collection, filter interface{}, update interface{}) *mongo.SingleResult {
 	options := options.FindOneAndUpdate().SetUpsert(true)
 	result := collection.FindOneAndUpdate(context.Background(), filter, update, options)
 	return result

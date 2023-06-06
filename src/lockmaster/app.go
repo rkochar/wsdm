@@ -1,8 +1,8 @@
 package main
 
 import (
+	"WDM-G1/shared"
 	"log"
-	"main/shared"
 	"net/http"
 )
 

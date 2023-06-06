@@ -1,10 +1,23 @@
 package shared
 
 import (
+	"github.com/google/uuid"
 	"strconv"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
+func ConvertStringToUUID(stringID string) (error, *uuid.UUID) {
+	uuidObject, convertErr := uuid.Parse(stringID)
+	if convertErr != nil {
+		return convertErr, nil
+	}
+	return nil, &uuidObject
+}
+
+func ConvertUUIDToString(uuidObject uuid.UUID) string {
+	return uuidObject.String()
+}
 
 func ConvertStringToMongoID(key string) (error, *primitive.ObjectID) {
 	documentID, hexErr := primitive.ObjectIDFromHex(key)
