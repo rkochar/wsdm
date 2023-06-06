@@ -8,6 +8,7 @@ RUN echo ${SERVICE}
 
 COPY src/${SERVICE}/ ./
 COPY src/shared/ ./shared/
+COPY config/config.yaml ./config.yaml
 
 RUN go mod init main
 RUN go mod tidy

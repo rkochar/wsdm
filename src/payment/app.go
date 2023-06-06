@@ -27,15 +27,18 @@ type PaidResponse struct {
 	Paid bool `json:"paid"`
 }
 
-var clients [shared.NUM_DBS]*mongo.Client
-var userCollections [shared.NUM_DBS]*mongo.Collection
-var paymentCollections [shared.NUM_DBS]*mongo.Collection
-
-// var client *mongo.Client
-// var userCollection *mongo.Collection
-// var paymentCollection *mongo.Collection
+var numInstances *int64
+var clients []*mongo.Client
+var userCollections []*mongo.Collection
+var paymentCollections []*mongo.Collection
 
 func main() {
+	var instanceNumErr error
+	instanceNumErr, numInstances = shared.GetNumOfServices(shared.PaymentService)
+	if instanceNumErr != nil {
+		log.Fatal(instanceNumErr)
+	}
+
 	go shared.SetUpKafkaListener(
 		[]string{"payment"}, false,
 		func(message *shared.SagaMessage) (*shared.SagaMessage, string) {
@@ -80,7 +83,7 @@ func main() {
 	if setupErr != nil {
 		log.Fatal(setupErr)
 	}
-	for i := 0; i < shared.NUM_DBS; i++ {
+	for i := 0; i < int(*numInstances); i++ {
 		defer clients[i].Disconnect(ctx)
 	}
 
@@ -106,7 +109,11 @@ func main() {
 }
 
 func setupDBConnections(ctx context.Context) error {
-	for i := 0; i < shared.NUM_DBS; i++ {
+	clients := make([]*mongo.Client, *numInstances)
+	userCollections := make([]*mongo.Collection, *numInstances)
+	paymentCollections := make([]*mongo.Collection, *numInstances)
+
+	for i := 0; i < int(*numInstances); i++ {
 		mongoURL := fmt.Sprintf("mongodb://paymentdb-service-%d:27017", i)
 		fmt.Printf("%d MongoDB URL: %s\n", i, mongoURL)
 		var err error

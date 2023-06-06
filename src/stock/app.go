@@ -24,10 +24,17 @@ type ItemChange struct {
 	amount int64
 }
 
-var clients [shared.NUM_DBS]*mongo.Client
-var collections [shared.NUM_DBS]*mongo.Collection
+var numInstances *int64
+var clients []*mongo.Client
+var collections []*mongo.Collection
 
 func main() {
+	var instanceNumErr error
+	instanceNumErr, numInstances = shared.GetNumOfServices(shared.StockService)
+	if instanceNumErr != nil {
+		log.Fatal(instanceNumErr)
+	}
+
 	go shared.SetUpKafkaListener(
 		[]string{"stock"}, false,
 		func(message *shared.SagaMessage) (*shared.SagaMessage, string) {
@@ -89,7 +96,7 @@ func main() {
 	if setupErr != nil {
 		log.Fatal(setupErr)
 	}
-	for i := 0; i < shared.NUM_DBS; i++ {
+	for i := 0; i < int(*numInstances); i++ {
 		defer clients[i].Disconnect(ctx)
 	}
 
@@ -113,9 +120,11 @@ func main() {
 }
 
 func setupDBConnections(ctx context.Context) error {
-	for i := 0; i < shared.NUM_DBS; i++ {
+	clients := make([]*mongo.Client, *numInstances)
+	collections := make([]*mongo.Collection, *numInstances)
+
+	for i := 0; i < int(*numInstances); i++ {
 		mongoURL := fmt.Sprintf("mongodb://stockdb-service-%d:27017", i)
-		// mongoURL := "mongodb://localhost:27017"
 		fmt.Printf("%d MongoDB URL: %s", i, mongoURL)
 		var err error
 		var client *mongo.Client

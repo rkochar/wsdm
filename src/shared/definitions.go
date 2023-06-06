@@ -7,7 +7,15 @@ import (
 	"os"
 )
 
-const NUM_DBS = 3
+type ServiceName string
+
+const (
+	StockService      ServiceName = "stock"
+	OrderService      ServiceName = "order"
+	PaymentService    ServiceName = "payment"
+	APIGatewayService ServiceName = "api-gateway"
+	LockmasterService ServiceName = "lockmaster"
+)
 
 type Config struct {
 	StockNum      int64 `yaml:"stockdb"`
@@ -17,7 +25,7 @@ type Config struct {
 	LockmasterNum int64 `yaml:"lockmasterdb"`
 }
 
-func GetNumOfServices(serviceName string) (error, *int64) {
+func GetNumOfServices(serviceName ServiceName) (error, *int64) {
 	fileName := "./config.yaml"
 
 	yamlFile, err := os.ReadFile(fileName)
@@ -34,12 +42,12 @@ func GetNumOfServices(serviceName string) (error, *int64) {
 	}
 	fmt.Printf("Config: %+v\n", config)
 
-	serviceFields := map[string]*int64{
-		"stock":       &config.StockNum,
-		"order":       &config.OrderNum,
-		"payment":     &config.PaymentNum,
-		"api-gateway": &config.APINum,
-		"lockmaster":  &config.LockmasterNum,
+	serviceFields := map[ServiceName]*int64{
+		StockService:      &config.StockNum,
+		OrderService:      &config.OrderNum,
+		PaymentService:    &config.PaymentNum,
+		APIGatewayService: &config.APINum,
+		LockmasterService: &config.LockmasterNum,
 	}
 	if fieldPtr, ok := serviceFields[serviceName]; ok {
 		return nil, fieldPtr
