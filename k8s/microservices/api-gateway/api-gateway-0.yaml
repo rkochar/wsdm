@@ -30,7 +30,7 @@ spec:
     spec:
       containers:
         - name: api-gateway-0
-          image: api-gateway:latest
+          image: ghcr.io/rkochar/wsdm/api-gateway:latest
           imagePullPolicy: IfNotPresent
           resources:
             limits:
