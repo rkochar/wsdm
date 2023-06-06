@@ -107,7 +107,7 @@ func main() {
 
 func setupDBConnections(ctx context.Context) error {
 	for i := 0; i < shared.NUM_DBS; i++ {
-		mongoURL := fmt.Sprintf("mongodb://orderdb-service-%d:27017", i)
+		mongoURL := fmt.Sprintf("mongodb://paymentdb-service-%d:27017", i)
 		fmt.Printf("%d MongoDB URL: %s\n", i, mongoURL)
 		var err error
 		var client *mongo.Client
