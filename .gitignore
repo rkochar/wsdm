@@ -3,3 +3,6 @@
 *.pyc
 .run
 /build.sh
+/update_packages.sh
+kubectl
+kubectl.sha256

@@ -368,7 +368,9 @@ func pay(userID *uuid.UUID, orderID *uuid.UUID, amount *int64) (clientError erro
 	}
 
 	paymentCollection := getPaymentCollection(userID, orderID)
+	paymentID := shared.GetNewID()
 	payment := shared.Payment{
+		ID:      paymentID,
 		UserID:  userID.String(),
 		OrderID: orderID.String(),
 		Amount:  *amount,
@@ -379,7 +381,6 @@ func pay(userID *uuid.UUID, orderID *uuid.UUID, amount *int64) (clientError erro
 		serverError = insertErr
 		return
 	}
-
 	return
 }
 
