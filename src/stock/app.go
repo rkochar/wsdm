@@ -249,13 +249,18 @@ func subtractHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func subtract(changes []ItemChange) (clientError error, serverError error) {
-	for _, change := range changes {
+	amountDone := 0
+	changesDone := make([]ItemChange, len(changes))
+
+	for i, change := range changes {
 		getItemErr, item := getItem(change.itemID)
 		if getItemErr != nil {
-			return nil, getItemErr
+			clientError = getItemErr
+			break
 		}
 		if item.Stock < change.amount {
-			return nil, errors.New("not enough stock to subtract")
+			clientError = errors.New("not enough stock to subtract")
+			break
 		}
 		update := bson.M{
 			"$inc": bson.M{
@@ -267,10 +272,32 @@ func subtract(changes []ItemChange) (clientError error, serverError error) {
 		result := shared.UpdateRecord(stockCollection, bson.M{"_id": change.itemID}, update)
 		if result.Err() != nil {
 			log.Printf("Update stock error: %s", result.Err())
-			return nil, result.Err()
+			serverError = result.Err()
+			break
+		}
+
+		amountDone++
+		changesDone[i] = change
+	}
+
+	for i := 0; i < amountDone; i++ {
+		changeDone := changesDone[i]
+
+		update := bson.M{
+			"$inc": bson.M{
+				"stock": changeDone.amount,
+			},
+		}
+
+		stockCollection := getStockCollection(changeDone.itemID)
+		result := shared.UpdateRecord(stockCollection, bson.M{"_id": changeDone.itemID}, update)
+		if result.Err() != nil {
+			log.Printf("Redo stock error: %s", result.Err())
+			serverError = result.Err()
 		}
 	}
-	return nil, nil
+
+	return
 }
 
 func addHandler(w http.ResponseWriter, r *http.Request) {
@@ -319,8 +346,9 @@ func add(changes []ItemChange) (clientError error, serverError error) {
 		result := shared.UpdateRecord(stockCollection, filter, update)
 		if result.Err() != nil {
 			log.Print(result.Err())
-			return nil, result.Err()
+			serverError = result.Err()
+			return
 		}
 	}
-	return nil, nil
+	return
 }

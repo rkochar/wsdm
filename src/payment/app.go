@@ -342,11 +342,13 @@ func pay(userID *uuid.UUID, orderID *uuid.UUID, amount *int64) (clientError erro
 	getuserErr, user := getUser(userID)
 	if getuserErr != nil {
 		log.Print("user not found")
-		return nil, getuserErr
+		clientError = getuserErr
+		return
 	}
 	if user.Credit < *amount {
 		log.Print("not enough credits to pay")
-		return nil, errors.New("not enough credits to pay")
+		clientError = errors.New("not enough credits to pay")
+		return
 	}
 
 	userFilter := bson.M{
@@ -361,7 +363,8 @@ func pay(userID *uuid.UUID, orderID *uuid.UUID, amount *int64) (clientError erro
 	userCollection := getUserCollection(userID)
 	result := shared.UpdateRecord(userCollection, userFilter, userUpdate)
 	if result.Err() != nil {
-		return nil, result.Err()
+		serverError = result.Err()
+		return
 	}
 
 	paymentCollection := getPaymentCollection(userID, orderID)
@@ -373,10 +376,11 @@ func pay(userID *uuid.UUID, orderID *uuid.UUID, amount *int64) (clientError erro
 	}
 	_, insertErr := paymentCollection.InsertOne(context.Background(), payment)
 	if insertErr != nil {
-		return nil, insertErr
+		serverError = insertErr
+		return
 	}
 
-	return nil, nil
+	return
 }
 
 func cancelPaymentHandler(w http.ResponseWriter, r *http.Request) {
@@ -410,7 +414,8 @@ func cancelPaymentHandler(w http.ResponseWriter, r *http.Request) {
 func cancelPayment(userID *uuid.UUID, orderID *uuid.UUID) (clientError error, serverError error) {
 	getPaymentErr, payment := getPayment(userID, orderID)
 	if getPaymentErr != nil {
-		return nil, getPaymentErr
+		clientError = getPaymentErr
+		return
 	}
 
 	userCollection := getUserCollection(userID)
@@ -424,7 +429,8 @@ func cancelPayment(userID *uuid.UUID, orderID *uuid.UUID) (clientError error, se
 	}
 	result := shared.UpdateRecord(userCollection, userFilter, userUpdate)
 	if result.Err() != nil {
-		return nil, result.Err()
+		serverError = result.Err()
+		return
 	}
 
 	paymentCollection := getPaymentCollection(userID, orderID)
@@ -439,7 +445,7 @@ func cancelPayment(userID *uuid.UUID, orderID *uuid.UUID) (clientError error, se
 	}
 	result = shared.UpdateRecord(paymentCollection, paymentFilter, paymentUpdate)
 	if result.Err() != nil {
-		return nil, result.Err()
+		serverError = result.Err()
 	}
-	return nil, nil
+	return
 }

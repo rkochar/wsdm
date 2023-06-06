@@ -347,10 +347,8 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println("Send Kafka SAGA message error")
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+	
 	w.WriteHeader(http.StatusOK)
-
-	// TODO: wait for response and return status
-	// log.Println("TODO TODO TODO")
 }
 
 // Functions used only by kafka
@@ -366,7 +364,8 @@ func updateOrder(orderID *uuid.UUID, status bool) (clientError error, serverErro
 	result := shared.UpdateRecord(ordersCollection, orderFilter, orderUpdate)
 	if result.Err() != nil {
 		log.Print(result.Err())
-		return nil, result.Err()
+		serverError = result.Err()
+		return
 	}
-	return nil, nil
+	return
 }
