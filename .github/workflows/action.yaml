@@ -62,6 +62,8 @@ jobs:
               - 'src/api-gateway/*.go'
             shared:
               - 'src/shared/**'
+            nginx:
+              - 'src/nginx/**'
 
       - name: stock-release-image
         if: steps.check-changes.outputs.stock == 'true' || steps.check-changes.outputs.shared == 'true'
@@ -128,3 +130,15 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/api-gateway:latest
             ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/api-gateway:${{steps.versioning.outputs.version_tag }}
+            
+
+      - name: nginx-release-image
+        if: steps.check-changes.outputs.nginx == 'true'
+        id: nginx-image
+        uses: docker/build-push-action@v4.0.0
+        with:
+          context: ./src/nginx
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/nginx:latest
+            ${{ env.REGISTRY }}/${{ env.CONTAINER_NAME }}/nginx:${{steps.versioning.outputs.version_tag }}

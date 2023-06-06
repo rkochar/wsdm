@@ -1,0 +1,5 @@
+stockdb: 3
+orderdb: 3
+paymentdb: 3
+api-gateway: 3
+lockmasterdb: 3
