@@ -21,8 +21,6 @@ import (
 var clients [shared.NUM_DBS]*mongo.Client
 var ordersCollections [shared.NUM_DBS]*mongo.Collection
 
-const parititon = 0
-
 func main() {
 	go shared.SetUpKafkaListener(
 		[]string{"order"}, false,
