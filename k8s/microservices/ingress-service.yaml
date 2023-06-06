@@ -6,6 +6,18 @@ metadata:
    kubernetes.io/ingress.class: nginx
    nginx.ingress.kubernetes.io/use-regex: "true"
    nginx.ingress.kubernetes.io/rewrite-target: /$1
+   nginx.ingress.kubernetes.io/configuration-snippet: |
+     set $service_name "default-service";
+
+     set_by_lua_block $service_name {
+       local request_id = ngx.var.uri:match("/orders/checkout/([^/]+)")
+        return "api-gateway-0";
+     
+       end
+     }
+
+
+
 spec:
  
  rules:
@@ -16,10 +28,10 @@ spec:
           pathType: ImplementationSpecific
           backend:
             service:
-              name: api-gateway-service-0
+              name: nginx-ingress-controller
               port:
-                number: 5000
-        - path: /order/(?!checkout).+
+                number: 80
+        - path: /orders/(?!checkout).+
           pathType: ImplementationSpecific
           backend:
             service:

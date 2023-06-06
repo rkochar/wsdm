@@ -6,7 +6,7 @@ import (
 	"strconv"
 )
 
-const API_GATEWAY = "http://api-gateway-service-0:5000/checkout/"
+const API_GATEWAY = "http://api-gateway-service-0:5000/checkout/release/"
 
 func RouteCheckoutCall(orderID string, status int) int {
 	str := strconv.Itoa(status)
