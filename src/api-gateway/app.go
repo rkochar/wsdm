@@ -54,7 +54,8 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	if channelCreationStatus {
 		log.Printf("\nNew Order call %s received", orderID)
 		immediateResponseCode := routeCheckoutCall(orderID)
-		if immediateResponseCode != http.StatusOK { // saga start went fine
+		if immediateResponseCode != http.StatusOK {
+			log.Printf("\nNew Order call %s received", orderID) // saga start went fine
 			w.WriteHeader(http.StatusBadRequest)
 		} else {
 			select {
@@ -77,7 +78,7 @@ func unblockCheckout(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
 	status, err := strconv.Atoi(vars["status"])
-	log.Printf("\nTrying to unlock order: %s with status %d", orderID, status)
+	log.Printf("\nTrying to unlock order now: %s with status %d", orderID, status)
 	if err != nil {
 		log.Println("Failed to convert string to integer:", err, orderID, vars["status"])
 		releaseChannel(orderID, http.StatusBadRequest)
@@ -111,6 +112,7 @@ func deleteChannel(orderId string) {
 }
 
 func releaseChannel(orderId string, status int) {
+	log.Println("Trying to aquicre lock on channel")
 	mutex.Lock()
 	ch := channelMap[orderId]
 	if ch == nil {
