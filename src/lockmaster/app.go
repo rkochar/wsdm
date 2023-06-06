@@ -1,9 +1,10 @@
 package main
 
 import (
-	"WDM-G1/shared"
 	"log"
 	"net/http"
+
+	"main/shared"
 )
 
 type Action struct {

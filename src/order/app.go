@@ -4,17 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
-	"WDM-G1/shared"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"main/shared"
 )
 
 var clients [shared.NUM_DBS]*mongo.Client
@@ -80,7 +81,7 @@ func main() {
 func setupDBConnections(ctx context.Context) error {
 	for i := 0; i < shared.NUM_DBS; i++ {
 		mongoURL := fmt.Sprintf("mongodb://orderdb-service-%d:27017", i)
-		//mongoURL := "mongodb://localhost:27017"
+		// mongoURL := "mongodb://localhost:27017"
 		fmt.Printf("%d MongoDB URL: %s", i, mongoURL)
 		var err error
 		var client *mongo.Client
@@ -208,7 +209,7 @@ func addItemHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: use kafka
 
 	stockURL := fmt.Sprintf("http://stock-service:5000/stock/find/%s", mongoItemID.String())
-	//stockURL := fmt.Sprintf("http://localhost:8082/stock/find/%s", mongoItemID.String())
+	// stockURL := fmt.Sprintf("http://localhost:8082/stock/find/%s", mongoItemID.String())
 	getStockResponse, getStockErr := http.Get(stockURL)
 	log.Printf("response: %s", getStockResponse.StatusCode)
 	log.Printf("get stock err: %s", getStockErr)
@@ -349,7 +350,7 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	// TODO: wait for response and return status
-	//log.Println("TODO TODO TODO")
+	// log.Println("TODO TODO TODO")
 }
 
 // Functions used only by kafka
