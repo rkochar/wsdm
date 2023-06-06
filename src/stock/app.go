@@ -5,17 +5,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
-	"WDM-G1/shared"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"main/shared"
 )
 
 type ItemChange struct {
@@ -114,7 +115,7 @@ func main() {
 func setupDBConnections(ctx context.Context) error {
 	for i := 0; i < shared.NUM_DBS; i++ {
 		mongoURL := fmt.Sprintf("mongodb://orderdb-service-%d:27017", i)
-		//mongoURL := "mongodb://localhost:27017"
+		// mongoURL := "mongodb://localhost:27017"
 		fmt.Printf("%d MongoDB URL: %s", i, mongoURL)
 		var err error
 		var client *mongo.Client

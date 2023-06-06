@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"WDM-G1/shared"
+	"main/shared"
 )
 
 var messageTypeMapStringToInt = map[string]int64{

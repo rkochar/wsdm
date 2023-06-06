@@ -5,17 +5,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
-	"WDM-G1/shared"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"main/shared"
 )
 
 type DoneResponse struct {
@@ -30,9 +31,9 @@ var clients [shared.NUM_DBS]*mongo.Client
 var userCollections [shared.NUM_DBS]*mongo.Collection
 var paymentCollections [shared.NUM_DBS]*mongo.Collection
 
-//var client *mongo.Client
-//var userCollection *mongo.Collection
-//var paymentCollection *mongo.Collection
+// var client *mongo.Client
+// var userCollection *mongo.Collection
+// var paymentCollection *mongo.Collection
 
 func main() {
 	go shared.SetUpKafkaListener(
