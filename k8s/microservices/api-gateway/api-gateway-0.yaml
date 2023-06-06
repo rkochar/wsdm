@@ -7,8 +7,8 @@ spec:
     app: api-gateway-0
   ports:
     - name: api-gateway-0
-      port: 27017
-      targetPort: 27017
+      port: 5000
+      targetPort: 5000
   clusterIP: None
 
 ---

@@ -9,5 +9,6 @@ echo "Starting mongo deployment"
 echo "Starting mysql deployment"
 ./k8s/mysql/lockmaster/deploy-lockmasterdb.sh
 
+sleep 10
 echo "Starting microservices deployment"
 ./k8s/microservices/deploy-microservice.sh

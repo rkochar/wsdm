@@ -11,8 +11,6 @@ type Action struct {
 	topic       string
 }
 
-const API_GATEWAY = "http://api-gateway-service-0:27017/"
-
 // Maps incoming message to outgoing message
 var successfulActionMap = map[string]Action{
 	// Normal checkout
@@ -54,11 +52,11 @@ func main() {
 				_, previousMessage := sagaLogToSagaMessage(previousLog)
 
 				nextAction, messageResponseAvailable = failActionMap[previousMessage.Name]
-				statusCallback = routeCheckoutCall(message.Order.OrderID, http.StatusBadRequest)
+				statusCallback = shared.RouteCheckoutCall(message.Order.OrderID, http.StatusBadRequest)
 			} else {
 				nextAction, messageResponseAvailable = successfulActionMap[message.Name]
 				if nextAction.nextMessage == "END-CHECKOUT-SAGA" {
-					statusCallback = routeCheckoutCall(message.Order.OrderID, http.StatusOK)
+					statusCallback = shared.RouteCheckoutCall(message.Order.OrderID, http.StatusOK)
 				}
 			}
 
@@ -88,15 +86,4 @@ func main() {
 			return &outMessage, nextAction.topic
 		},
 	)
-}
-
-func routeCheckoutCall(orderID string, status int) int {
-
-	backendURL := API_GATEWAY + orderID + "/" + string(status)
-	resp, err := http.Get(backendURL)
-	if err != nil {
-		log.Printf("\nFailed to make service call: %v", err)
-		return http.StatusBadRequest
-	}
-	return resp.StatusCode
 }

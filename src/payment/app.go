@@ -38,7 +38,6 @@ func main() {
 	go shared.SetUpKafkaListener(
 		[]string{"payment"}, false,
 		func(message *shared.SagaMessage) (*shared.SagaMessage, string) {
-
 			returnMessage := shared.SagaMessageConvertStartToEnd(message)
 
 			// TODO: remove code duplication
@@ -50,6 +49,7 @@ func main() {
 
 				clientError, serverError := pay(mongoUserID, mongoOrderID, &message.Order.TotalCost)
 				if clientError != nil || serverError != nil {
+					log.Print(clientError, serverError)
 					returnMessage.Name = "ABORT-CHECKOUT-SAGA"
 				}
 				return returnMessage, "payment-ack"
@@ -84,12 +84,13 @@ func main() {
 	}
 
 	router := mux.NewRouter()
-	router.HandleFunc("/payment/pay/{user_id}/{order_id}/{amount}", payHandler)
-	router.HandleFunc("/payment/cancel/{user_id}/{order_id}", cancelPaymentHandler)
-	router.HandleFunc("/payment/status/{user_id}/{order_id}", paymentStatusHandler)
-	router.HandleFunc("/payment/add_funds/{user_id}/{amount}", addFundsHandler)
-	router.HandleFunc("/payment/create_user", createUserHandler)
-	router.HandleFunc("/payment/find_user/{user_id}", findUserHandler)
+	router.HandleFunc("/pay/{user_id}/{order_id}/{amount}", payHandler)
+	router.HandleFunc("/cancel/{user_id}/{order_id}", cancelPaymentHandler)
+	router.HandleFunc("/status/{user_id}/{order_id}", paymentStatusHandler)
+	router.HandleFunc("/add_funds/{user_id}/{amount}", addFundsHandler)
+	router.HandleFunc("/create_user", createUserHandler)
+	router.HandleFunc("/find_user/{user_id}", findUserHandler)
+	router.HandleFunc("/", greetingHandler)
 
 	port := os.Getenv("PORT")
 	fmt.Printf("Current port is : %s\n", port)
@@ -106,7 +107,6 @@ func main() {
 func setupDBConnections(ctx context.Context) error {
 	for i := 0; i < shared.NUM_DBS; i++ {
 		mongoURL := fmt.Sprintf("mongodb://orderdb-service-%d:27017", i)
-		//mongoURL := "mongodb://localhost:27017"
 		fmt.Printf("%d MongoDB URL: %s", i, mongoURL)
 		var err error
 		var client *mongo.Client
@@ -120,6 +120,16 @@ func setupDBConnections(ctx context.Context) error {
 		paymentCollections[i] = client.Database("payment").Collection("payments")
 	}
 	return nil
+}
+
+func greetingHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("URL Path:", r.URL.Path)
+
+	// You can also print the full URL if the request included it
+	if r.URL.RawQuery != "" {
+		fmt.Println("Full URL:", r.URL.String())
+	}
+	log.Print("Hello welcome to paymnt!!")
 }
 
 func getUser(documentID *uuid.UUID) (error, *shared.User) {
@@ -235,6 +245,8 @@ func addFundsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func createUserHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("creates user handler")
+
 	user := shared.User{
 		Credit: 0.0,
 	}
@@ -314,21 +326,25 @@ func payHandler(w http.ResponseWriter, r *http.Request) {
 	clientError, serverError := pay(mongoUserID, mongoOrderID, amountInt)
 
 	if clientError != nil {
+		log.Print(clientError)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	if serverError != nil {
+		log.Print(serverError)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
 
 func pay(userID *uuid.UUID, orderID *uuid.UUID, amount *int64) (clientError error, serverError error) {
-	getUserErr, user := getUser(userID)
-	if getUserErr != nil {
-		return nil, getUserErr
+	getuserErr, user := getUser(userID)
+	if getuserErr != nil {
+		log.Print("user not found")
+		return nil, getuserErr
 	}
 	if user.Credit < *amount {
+		log.Print("not enough credits to pay")
 		return nil, errors.New("not enough credits to pay")
 	}
 
@@ -340,6 +356,7 @@ func pay(userID *uuid.UUID, orderID *uuid.UUID, amount *int64) (clientError erro
 			"credit": -*amount,
 		},
 	}
+
 	userCollection := getUserCollection(userID)
 	result := shared.UpdateRecord(userCollection, userFilter, userUpdate)
 	if result.Err() != nil {
@@ -424,5 +441,4 @@ func cancelPayment(userID *uuid.UUID, orderID *uuid.UUID) (clientError error, se
 		return nil, result.Err()
 	}
 	return nil, nil
-
 }

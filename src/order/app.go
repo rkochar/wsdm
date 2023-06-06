@@ -20,10 +20,7 @@ import (
 var clients [shared.NUM_DBS]*mongo.Client
 var ordersCollections [shared.NUM_DBS]*mongo.Collection
 
-//var client *mongo.Client
-//var ordersCollection *mongo.Collection
-
-const partition = 1
+const parititon = 0
 
 func main() {
 	go shared.SetUpKafkaListener(
@@ -60,12 +57,13 @@ func main() {
 	}
 
 	router := mux.NewRouter()
-	router.HandleFunc("/orders/create/{user_id}", createOrderHandler)
-	router.HandleFunc("/orders/remove/{order_id}", removeOrderHandler)
-	router.HandleFunc("/orders/find/{order_id}", findOrderHandler)
-	router.HandleFunc("/orders/addItem/{order_id}/{item_id}", addItemHandler)
-	router.HandleFunc("/orders/removeItem/{order_id}/{item_id}", removeItemHandler)
-	router.HandleFunc("/orders/checkout/{order_id}", checkoutHandler)
+	router.HandleFunc("/create/{user_id}", createOrderHandler)
+	router.HandleFunc("/remove/{order_id}", removeOrderHandler)
+	router.HandleFunc("/find/{order_id}", findOrderHandler)
+	router.HandleFunc("/addItem/{order_id}/{item_id}", addItemHandler)
+	router.HandleFunc("/removeItem/{order_id}/{item_id}", removeItemHandler)
+	router.HandleFunc("/checkout/{order_id}", checkoutHandler)
+	router.HandleFunc("/", defaultCheckoutHandler)
 
 	port := os.Getenv("PORT")
 	fmt.Printf("Current port is : %s\n", port)
@@ -266,9 +264,7 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: use kafka
 	stockURL := fmt.Sprintf("http://stock-service:5000/find/%s", mongoItemID.String())
-	//stockURL := fmt.Sprintf("http://localhost:8082/find/%s", mongoItemID.String())
 	getStockResponse, getStockErr := http.Get(stockURL)
 	if getStockErr != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -306,27 +302,35 @@ func removeItemHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func defaultCheckoutHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("default greeter order")
+}
 func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	orderID := vars["order_id"]
-
 	convertOrderIDErr, mongoOrderID := shared.ConvertStringToUUID(orderID)
+	log.Println("Starting checkout saga for order", orderID)
+	statusCallback := http.StatusOK
+
 	if convertOrderIDErr != nil {
 		log.Println("Convert String to Mongo ID error")
+		log.Printf("statusCallback is: %d", statusCallback)
+		statusCallback = shared.RouteCheckoutCall(orderID, http.StatusBadRequest)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	getOrderErr, order := getOrder(mongoOrderID)
 	order.OrderID = orderID
-	// fmt.Println("Order ID", orderID, order.OrderID)
 	if getOrderErr != nil {
+		statusCallback = shared.RouteCheckoutCall(orderID, http.StatusBadRequest)
+		log.Printf("statusCallback is: %d", statusCallback)
 		log.Println("Get order error")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	sender := shared.CreateConnection("order-ack", partition)
+	sender := shared.CreateTopicSender("order-ack")
 	defer sender.Close()
 
 	message := shared.SagaMessage{
@@ -334,6 +338,7 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 		SagaID: -1,
 		Order:  *order,
 	}
+	log.Println("Sending message to kafka", message)
 	// message.Order.OrderID = orderID
 
 	sendErr := shared.SendSagaMessage(&message, sender)
@@ -341,9 +346,10 @@ func checkoutHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println("Send Kafka SAGA message error")
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+	w.WriteHeader(http.StatusOK)
 
 	// TODO: wait for response and return status
-	log.Println("TODO TODO TODO")
+	//log.Println("TODO TODO TODO")
 }
 
 // Functions used only by kafka

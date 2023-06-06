@@ -93,10 +93,11 @@ func main() {
 	}
 
 	router := mux.NewRouter()
-	router.HandleFunc("/stock/find/{item_id}", findHandler)
-	router.HandleFunc("/stock/subtract/{item_id}/{amount}", subtractHandler)
-	router.HandleFunc("/stock/add/{item_id}/{amount}", addHandler)
-	router.HandleFunc("/stock/item/create/{price}", createHandler)
+	router.HandleFunc("/find/{item_id}", findHandler)
+	router.HandleFunc("/subtract/{item_id}/{amount}", subtractHandler)
+	router.HandleFunc("/add/{item_id}/{amount}", addHandler)
+	router.HandleFunc("/item/create/{price}", createHandler)
+	router.HandleFunc("/", defaultHandler)
 
 	port := os.Getenv("PORT")
 	fmt.Printf("Current port is: %s\n", port)
@@ -173,6 +174,10 @@ func findHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("JSON ENCODE ERROR")
 		w.WriteHeader(http.StatusBadRequest)
 	}
+}
+
+func defaultHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("defualt greeter of stock")
 }
 
 func createHandler(w http.ResponseWriter, r *http.Request) {
