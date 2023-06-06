@@ -13,7 +13,8 @@ func RouteCheckoutCall(orderID string, status int) int {
 	backendURL := API_GATEWAY + orderID + "/" + str
 	log.Printf("Calling %s", backendURL)
 	resp, err := http.Get(backendURL)
-	if err != nil {
+
+  if err != nil {
 		log.Printf("\nFailed to make service call: %v", err)
 		return http.StatusBadRequest
 	}
