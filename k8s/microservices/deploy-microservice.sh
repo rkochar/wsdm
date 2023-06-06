@@ -1,7 +1,10 @@
 #1/bin/bash
 
-echo "Deploying ingress"
-kubectl apply -f ./k8s/microservices/ingress-service.yaml
+echo "Deploying nginx"
+kubectl apply -f ./k8s/microservices/nginx.yaml
+
+echo "Deploying API Gateway"
+./k8s/microservices/api-gateway/deploy-api-gateway.sh
 
 echo "Deploying stock"
 kubectl apply -f ./k8s/microservices/stock-app.yaml
@@ -18,6 +21,3 @@ kubectl apply -f ./k8s/microservices/lockmaster-app.yaml
 
 echo "Deploying API Gateway"
 ./k8s/microservices/api-gateway/deploy-api-gateway.sh
-
-echo "Deleting NGINX"
-kubectl apply -f ./k8s/microservices/nginx/nginx.yaml
