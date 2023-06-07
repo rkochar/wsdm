@@ -17,7 +17,7 @@ Basic project structure with Python's Flask and Redis.
 * `config`
     Folder storing config files.
 
-## Actual Kubernetes on Local Machine
+## Actual Kubernetes
 
 ```
 ./deploy-cluster.sh

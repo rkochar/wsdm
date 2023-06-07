@@ -24,8 +24,8 @@ type ItemChange struct {
 	amount int64
 }
 
-var clients [shared.NUM_DBS]*mongo.Client
-var collections [shared.NUM_DBS]*mongo.Collection
+var clients [5]*mongo.Client
+var collections [5]*mongo.Collection
 
 func main() {
 	go shared.SetUpKafkaListener(
@@ -89,7 +89,7 @@ func main() {
 	if setupErr != nil {
 		log.Fatal(setupErr)
 	}
-	for i := 0; i < shared.NUM_DBS; i++ {
+	for i := 0; i < 5; i++ {
 		defer clients[i].Disconnect(ctx)
 	}
 
@@ -113,7 +113,7 @@ func main() {
 }
 
 func setupDBConnections(ctx context.Context) error {
-	for i := 0; i < shared.NUM_DBS; i++ {
+	for i := 0; i < 5; i++ {
 		mongoURL := fmt.Sprintf("mongodb://stockdb-service-%d:27017", i)
 		// mongoURL := "mongodb://localhost:27017"
 		fmt.Printf("%d MongoDB URL: %s", i, mongoURL)
