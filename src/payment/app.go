@@ -27,9 +27,9 @@ type PaidResponse struct {
 	Paid bool `json:"paid"`
 }
 
-var clients [shared.NUM_DBS]*mongo.Client
-var userCollections [shared.NUM_DBS]*mongo.Collection
-var paymentCollections [shared.NUM_DBS]*mongo.Collection
+var clients [5]*mongo.Client
+var userCollections [5]*mongo.Collection
+var paymentCollections [5]*mongo.Collection
 
 // var client *mongo.Client
 // var userCollection *mongo.Collection
@@ -80,7 +80,7 @@ func main() {
 	if setupErr != nil {
 		log.Fatal(setupErr)
 	}
-	for i := 0; i < shared.NUM_DBS; i++ {
+	for i := 0; i < 5; i++ {
 		defer clients[i].Disconnect(ctx)
 	}
 
@@ -106,7 +106,7 @@ func main() {
 }
 
 func setupDBConnections(ctx context.Context) error {
-	for i := 0; i < shared.NUM_DBS; i++ {
+	for i := 0; i < 5; i++ {
 		mongoURL := fmt.Sprintf("mongodb://paymentdb-service-%d:27017", i)
 		fmt.Printf("%d MongoDB URL: %s\n", i, mongoURL)
 		var err error

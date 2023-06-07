@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: paymentdb-service-4
+spec:
+  selector:
+    app: paymentdb-4
+  ports:
+    - name: paymentdb-4
+      port: 27017
+      targetPort: 27017
+  clusterIP: None
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: paymentdb-4
+spec:
+  serviceName: paymentdb-service-4
+  replicas: 1
+  selector:
+    matchLabels:
+      app: paymentdb-4
+  template:
+    metadata:
+      labels:
+        app: paymentdb-4
+    spec:
+      containers:
+        - name: paymentdb-4
+          image: mongo:6
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: 27017
+            name: paymentdb0
+          volumeMounts:
+          - name: paymentdb-pvc-4
+            mountPath: /mnt/db
+  volumeClaimTemplates:
+  - metadata:
+      name: paymentdb-pvc-4
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+

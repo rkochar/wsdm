@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: stockdb-service-4
+spec:
+  selector:
+    app: stockdb-4
+  ports:
+    - name: stockdb-4
+      port: 27017
+      targetPort: 27017
+  clusterIP: None
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: stockdb-4
+spec:
+  serviceName: stockdb-service-4
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stockdb-4
+  template:
+    metadata:
+      labels:
+        app: stockdb-4
+    spec:
+      containers:
+        - name: stockdb-4
+          image: mongo:6
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: 27017
+            name: stockdb0
+          volumeMounts:
+          - name: stockdb-pvc-4
+            mountPath: /mnt/db
+  volumeClaimTemplates:
+  - metadata:
+      name: stockdb-pvc-4
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+
