@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: payment-service
 spec:
-  type: ClusterIP
+  type: LoadBalancer
   selector:
     component: payment
   ports:
@@ -18,7 +18,7 @@ kind: Deployment
 metadata:
   name: payment-deployment
 spec:
-  replicas: 1
+  replicas: 5
   selector:
     matchLabels:
       component: payment

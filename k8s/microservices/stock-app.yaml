@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: stock-service
 spec:
-  type: ClusterIP
+  type: LoadBalancer
   selector:
     component: stock
   ports:
@@ -18,7 +18,7 @@ kind: Deployment
 metadata:
   name: stock-deployment
 spec:
-  replicas: 1
+  replicas: 5
   selector:
     matchLabels:
       component: stock
