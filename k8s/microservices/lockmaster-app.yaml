@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: lockmaster-service
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     component: lockmaster
   ports:
